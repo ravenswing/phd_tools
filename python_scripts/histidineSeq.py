@@ -56,7 +56,7 @@ print(seq)
 #                   GENERATE TLEAP FILE
 ######################################################### 
 
-fname = "seq_"+str(his_len)+"HIS+"+xres
+fname = "seq_"+str(his_len)+"HIS+"+xres+"x"+str(reps)
 if args.ncap:   fname = fname+"_Ncapped"
 if args.ccap:   fname = fname+"_Ccapped"
 if his_prot:    fname = fname+"_Prot"
