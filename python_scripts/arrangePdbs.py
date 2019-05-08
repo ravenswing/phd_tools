@@ -48,10 +48,11 @@ try:
 except FileNotFoundError:
     print("ERROR: specified pdb not found")
 # stem = filename - used for all subsequent files
-stem = pdb[:-4]
+stem = pdb[4:-4] if pdb[:3]=="seq" else pdb[:-4]
+print("WORKING on file: ",stem)
 # make temporary directory 
 try:
-    subprocess.call("mkdir multi-pdb/",shell=True) 
+    subprocess.call("rm -r multi-pdb/; mkdir multi-pdb/",shell=True) 
 except:
     print("ERROR: generating multi-pdbs directory")
 # pymol can not import multiple instances of the same pdb
@@ -94,7 +95,7 @@ for i in np.arange(np.prod(size))[1:]:
         f.write(alter_line)
 # save output pdb with detailed naming 
 with open('temp.py','a') as f:
-    f.write("cmd.extract('tosave', 'all')\ncmd.save('{}_{}x{}_{}A.pdb', 'tosave')"\
+    f.write("cmd.extract('tosave', 'all')\ncmd.save('brush_{}_{}x{}_{}A.pdb', 'tosave')"\
             .format(stem,size[0],size[1],args.sep))
 
 #########################################################
