@@ -27,10 +27,7 @@ parser.add_argument("-col", type=int, default=3, help='Number of columns of pept
 parser.add_argument("-sep", type=float, default=0.0, help='Separation between each peptide "cylinder" - Angstroms (default: %(default)s)')
 # optional arguments
 parser.add_argument("-rad", type=float, default=7.0, help='Radius of the assumed peptide "cylinders" - Angstroms (default: %(default)s)')
-#parser.add_argument("-hisl", type=int, default=3, help='Histidine Lenght in block (default: %(default)s)',required=False)
 # additional flags
-#parser.add_argument("-ncap", action="store_true", help='N Terminal cap applied? (default: %(default)s)')
-#parser.add_argument("-ccap", action="store_true", help='C Terminal cap applied? (default: %(default)s)')
 #parser.add_argument("-prot", action="store_true", help='PROTonation of histidines (default: %(default)s)')
 
 # define variable from user input arguments
