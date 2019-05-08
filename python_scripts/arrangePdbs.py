@@ -68,8 +68,8 @@ for n in np.arange(np.prod(size)):
 
 # load modules and pdbs into pymol
 init_lines = "import pymol\nimport numpy as np\ncmd.delete('all')\n\
-        for i in np.arange({}):\n    cmd.load('multi-pdb/{}_{{}}.pdb'.format(i))\n\
-        cmd.orient('all')\n".format(np.prod(size), stem)
+for i in np.arange({}):\n    cmd.load('multi-pdb/{}_{{}}.pdb'.format(i))\n\
+cmd.orient('all')\n".format(np.prod(size), stem)
 with open('temp.py','w') as f:
     f.write(init_lines)
 # calculate the distance between "cylinders" of peptides
@@ -82,25 +82,27 @@ df.insert(value = np.zeros(np.prod(size)), column='Z', loc=0)
 for line in np.arange(np.prod(size)):
 # multiply by d to get Angstrom values
     z,x,y = list(df.iloc[line].multiply(d))[:]
-    translate_line = "cmd.translate([{}, {}, {}], {}_{} )\n"\
+    translate_line = "cmd.translate([{}, {}, {}], \"{}_{}\" )\n"\
             .format(z,x,y,stem,line)
     with open('temp.py','a') as f:
         f.write(translate_line)
 # pymol alter to renumber residues into continuous series
 for i in np.arange(np.prod(size))[1:]:
-    alter_line = "cmd.alter({}_{} , 'resi=str(int(resi)+{})')\n"\
-            .format(stem,i,(length*i))
+    alter_line = "cmd.alter(\"{}_{}\" , 'resi=str(int(resi)+{})')\n"\
+            .format(stem,i,(args.len*i))
     with open('temp.py','a') as f:
         f.write(alter_line)
 # save output pdb with detailed naming 
 with open('temp.py','a') as f:
-    f.write("cmd.extract('tosave', 'all')\n\
-            cmd.save('{}_{}x{}_{}A.pdb', 'tosave')"\
-            .format(stem,size[0],size[1],args.sep)
+    f.write("cmd.extract('tosave', 'all')\ncmd.save('{}_{}x{}_{}A.pdb', 'tosave')"\
+            .format(stem,size[0],size[1],args.sep))
 
 #########################################################
-#                       RUN TLEAP
+#                       RUN PYMOL
 ######################################################### 
 
-
+try:
+    subprocess.call("pymol -cqi temp.py",shell=True)
+except:
+    print("ERROR: PyMol command failed.")
 
