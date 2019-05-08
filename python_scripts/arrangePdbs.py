@@ -10,6 +10,7 @@ import subprocess
 import glob
 import sys
 import argparse
+import pandas as pd
 from itertools import product
 
 ########################################################
@@ -36,23 +37,25 @@ parser.add_argument("-rad", type=float, default=7.0, help='Radius of the assumed
 args = parser.parse_args()
 pdb     = args.pdb
 size    = [args.row,args.col]
-sep     = args.sep
 
 ########################################################
 #               COPY PBD ENOUGH TIMES
 ########################################################
+
+# confirm that the target pdb exists
 try:
     fh = open(pdb, 'r')
 except FileNotFoundError:
     print("ERROR: specified pdb not found")
-
+# stem = filename - used for all subsequent files
 stem = pdb[:-4]
-
+# make temporary directory 
 try:
     subprocess.call("mkdir multi-pdb/",shell=True) 
 except:
     print("ERROR: generating multi-pdbs directory")
-
+# pymol can not import multiple instances of the same pdb
+# therefore create enough copies of target pdb to build brush
 for n in np.arange(np.prod(size)):
     try: 
         subprocess.call("cp {} multi-pdb/{}_{}.pdb".format(pdb,stem,n),shell=True)
@@ -63,21 +66,41 @@ for n in np.arange(np.prod(size)):
 #               GENERATE PYMOL CMD FILE
 ######################################################### 
 
-line1 = "import pymol\nimport numpy as np\ncmd.delete('all')\n"
-line2 = "for i in np.arange({}):\n    cmd.load('multi-pdb/{}_{{}}.pdb'.format(i))".format(np.prod(size), stem)
-line3 = "\ncmd.orient('all')\n"
-
+# load modules and pdbs into pymol
+init_lines = "import pymol\nimport numpy as np\ncmd.delete('all')\n\
+        for i in np.arange({}):\n    cmd.load('multi-pdb/{}_{{}}.pdb'.format(i))\n\
+        cmd.orient('all')\n".format(np.prod(size), stem)
 with open('temp.py','w') as f:
-    f.write(line1)
-    f.write(line2)
-    f.write(line3)
+    f.write(init_lines)
+# calculate the distance between "cylinders" of peptides
+d = 2*args.rad+args.sep # / Angstroms
+# create list of coordinates(/d) in the correct order to ensure sensible numbering
+df = pd.DataFrame(list(product(np.arange(size[0]),np.arange(size[1]), repeat=1)))
+df.sort_values(0, axis=0, ascending=False, inplace=True)
+df.insert(value = np.zeros(np.prod(size)), column='Z', loc=0)
+# pymol translate lines move imported pdbs to correct coordinates
+for line in np.arange(np.prod(size)):
+# multiply by d to get Angstrom values
+    z,x,y = list(df.iloc[line].multiply(d))[:]
+    translate_line = "cmd.translate([{}, {}, {}], {}_{} )\n"\
+            .format(z,x,y,stem,line)
+    with open('temp.py','a') as f:
+        f.write(translate_line)
+# pymol alter to renumber residues into continuous series
+for i in np.arange(np.prod(size))[1:]:
+    alter_line = "cmd.alter({}_{} , 'resi=str(int(resi)+{})')\n"\
+            .format(stem,i,(length*i))
+    with open('temp.py','a') as f:
+        f.write(alter_line)
+# save output pdb with detailed naming 
+with open('temp.py','a') as f:
+    f.write("cmd.extract('tosave', 'all')\n\
+            cmd.save('{}_{}x{}_{}A.pdb', 'tosave')"\
+            .format(stem,size[0],size[1],args.sep)
 
 #########################################################
 #                       RUN TLEAP
 ######################################################### 
-num = np.array(list(product([0,1,2], repeat=2)))
-print(num)
-num = np.stack(num)
-num2 = np.sort(num,axis=1)
-print(num2)
+
+
 
