@@ -1,5 +1,7 @@
 import subprocess
 import argparse
+import pymol
+import pymol.cmd as cmd
 import pandas as pd
 
 import glob
@@ -39,10 +41,10 @@ colvar = "{}/{}.COLVAR.old".format(wd,stem)
 xtc = "{}/{}_rw_fin.xtc".format(wd,stem)
 tpr = "{}/{}_ext.tpr".format(wd,pdb)
 
-try:
-    subprocess.call("cp ../UCB-350ns_Cterm/{}/{}.colvar {}".format(wd,pdb,colvar))
-except:
-    print("ERROR: cannot find old COLVAR.")
+#try:
+#    subprocess.call("cp ../UCB-350ns_Cterm/{}/{}.colvar {}".format(wd,pdb,colvar))
+#except:
+#    print("ERROR: cannot find old COLVAR.")
 
 with open(colvar) as f: 
     lines = f.readlines()
@@ -68,6 +70,15 @@ except:
 ########################################################
 #               ALIGN ALL PDBS TO REF.
 ########################################################
+
+# Importing the PyMOL module will create the window.
+# Tell PyMOL we don't want any GUI features.
+pymol.pymol_argv = ['pymol', '-Qic']
+# Call the function below before using any PyMOL modules.
+pymol.finish_launching()
+mobile = "{} and resi 15-315".format()
+target = "{} and resi 15-315".format()
+cmd.align(mobile, target)
 
 
 
