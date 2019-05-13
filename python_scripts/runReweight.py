@@ -11,9 +11,6 @@ import pymol.cmd as cmd
 import pandas as pd
 import numpy as np
 
-import glob
-
-
 
 ########################################################
 #                   PARSING INPUTS
@@ -27,8 +24,9 @@ parser.add_argument("-fs", type=int, default=1, help='fs (default: %(default)s)'
 parser.add_argument("-refpath", type=str, default='./reference.pdb', help='path to reference pdb for alignment in PyMol (default: %(default)s)')
 
 # optional arguments
-parser.add_argument("-gmx", type=str, default='/usr/local/gromacs/bin/gmx', help='Local Gromacs Path (default: %(default)s)', required=False)
-parser.add_argument("-pypath", type=str, default='/usr/bin/python', help='Local Python Path (default: %(default)s)', required=False)
+parser.add_argument("-gmx", type=str, default='/usr/local/gromacs/bin/gmx', help='Local Gromacs Executable Path (default: %(default)s)', required=False)
+parser.add_argument("-pypath", type=str, default='/usr/bin/python', help='Local Python Executable Path (default: %(default)s)', required=False)
+parser.add_argument("-compath", type=str, default='./IN_OUT_PDB/', help='Path for IN/OUT PDBs to make a comparison PyMOL session (default: %(default)s)', required=False)
 
 # additional flags
 #parser.add_argument("-prot", action="store_true", help='PROTonation of histidines (default: %(default)s)')
@@ -39,6 +37,7 @@ pdb     = args.pdb
 fs      = args.fs
 gmx_path = args.gmx
 py_path = args.pypath
+comp_path = args.compath
 
 ########################################################
 #                  GENERATE OUT PDB
@@ -57,6 +56,7 @@ try:
     subprocess.call('cp ../UCB-350ns_Cterm/{}/{}.colvar ./{}'.format(wd,pdb,colvar), shell=True)
 except:
     print("ERROR: cannot find old COLVAR.")
+    sys.exit()
 # read in the old COLVAR file
 with open(colvar) as f: 
     lines = f.readlines()
@@ -76,6 +76,7 @@ try:
             .format(gmx_path,tpr,xtc,out_name,wd,t=timestamp),shell=True)
 except:
     print("ERROR: trjconv failed.")
+    sys.exit()
 
 ########################################################
 #               ALIGN ALL PDBS TO REF.
@@ -105,6 +106,12 @@ for state in ["IN","OUT"]:
         subprocess.call("pymol -cqi temp.py",shell=True)
     except:
         print("ERROR: PyMol command failed.")
+        sys.exit()
+    # copy the pdbs to a comparison folder
+    try:
+        subprocess.call("cp {}_al.pdb {}".format(mobile_fn, comp_path), shell=True)
+    except:
+        print("ERROR: unable to copy to COMPARISON DIRECTORY")
 
 ########################################################
 #           EDIT PDB ALIGN/ RMSD COLUMNS
@@ -156,6 +163,7 @@ try:
             .format(w=wd,s=stem),shell=True)
 except:
     print("ERROR: Driver failed")
+    sys.exit()
 
 
 ########################################################
