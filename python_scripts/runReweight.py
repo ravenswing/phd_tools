@@ -49,11 +49,12 @@ stem = "{}-FS{}".format(pdb,fs)
 colvar = "{}/{}.COLVAR.old".format(wd,stem)
 xtc = "{}/{}_rw_fin.xtc".format(wd,stem)
 tpr = "{}/{}_ext.tpr".format(wd,pdb)
-out_name = "{}/{}_OUT.pdb".format(wd,stem)
+out_name = "{}/{}_OUTsc.pdb".format(wd,stem)
 # ensure that COLVAR file exists in the working directory
 try:
     print("../UCB-350ns_Cterm/{}/{}.colvar ./{}".format(wd,pdb,colvar))
-    subprocess.call('cp ../UCB-350ns_Cterm/{}/{}.colvar ./{}'.format(wd,pdb,colvar), shell=True)
+    subprocess.call('cp ../UCB-350ns_Cterm/{}/{}.colvar ./{}'\
+            .format(wd,pdb,colvar), shell=True)
 except:
     print("ERROR: cannot find old COLVAR.")
     sys.exit()
@@ -61,16 +62,63 @@ except:
 with open(colvar) as f: 
     lines = f.readlines()
     data = [l for l in lines if l[0] not in ("@", "#")]
-    data = [l.split()[:2] for l in data]
+    data = [l.split()[:3] for l in data]
 # extract time and pp.proj data
-df = pd.DataFrame({'time':[float(x[0]) for x in data[:]],'proj':[float(x[1]) for x in data[:]]})
+df = pd.DataFrame({'time':[float(x[0]) for x in data[:]],\
+        'proj':[float(x[1]) for x in data[:]],\
+        'ext':[float(x[2]) for x in data[:]]})
+# round timestamps to ensure successful merging
+df['int_time'] = df['time'].astype(int)
+# remove duplicate lines created by restarts
+df = df.drop_duplicates(subset='int_time',keep='last')
+# cutdown COLVAR to match traj - select every 5th lin
+df = df.iloc[::5,:]
+print(df.head(), df.shape)
+# utilies Gromacs mindist to get minimum distance between protein and ligand
+dist_xvg = "{}/{}_mindist.xvg".format(wd,stem)
+try:
+    subprocess.call("echo 1 13 | {} mindist -f {} -s {} -od {} -n {}/i.ndx"\
+            .format(gmx_path,xtc,tpr,dist_xvg,wd), shell=True)
+except:
+    print("ERROR: gmx mindist failed")
+    sys.exit()
+# read in mindist output
+with open(dist_xvg,'r') as f:
+    lines = f.readlines()
+    md = [float(l.split()[1]) for l in lines if l[0] not in ("@", "#")] 
+# add mindist data to pd.DataFrame
+df['min_dist'] = md
+# filter the data to within basic thresholds on proj, ext and min. distance
+df = df[ (df.proj > 3.1) & (df.proj < 4.0) & (df.ext < 0.5) & (df.min_dist > 1.2) ]
+# find the maximum min. distance value
+max_min = df['min_dist'].max()
+# define weights for calculating score 1-1-1 = all equal
+weight = [1,1,1]
+# calculate the score for determining "best" OUT frame
+def calculate_score(frame):
+    # optimal value of pp.proj = 3.5
+    proj_score  = weight[0] * abs(3.5 - frame['proj'])
+    # optimal value of pp.ext = 0
+    ext_score   = weight[1] * abs(0.0 - frame['ext'])
+    # optimal value of min. distance = greatest possible
+    d_score     = weight[2] * (max_min - frame['min_dist'])
+    # score is sum of differences between opt. values and values per frame
+    return proj_score + ext_score + d_score
+# calculate the score for each remaining frame
+df['score'] = df.apply(calculate_score, axis=1)
+# timestamp of frame with lowest score, i.e. " best" frame
+timestamp = df.loc[df['score'].idxmin()].int_time
+print(timestamp, type(timestamp))
+
+#### OLD METHOD OF RANKING FRAMES ####
 # sort by time so as to extract last suitable frame, i.e. greater difference from IN
-df.sort_values('time',ascending=False, inplace=True)
+#df.sort_values('time',ascending=False, inplace=True)
 # find the value where 3.4 < pp.proj < 3.5
-df = df[ df['proj'].between(3.4,3.5,inclusive=True) ]
+#df = df[ df['proj'].between(3.4,3.5,inclusive=True) ]
 # get nearest timestamp to extract snapshot
-timestamp = round(df['time'].iloc[0],-1)
+#timestamp = round(df['time'].iloc[0],-1)
 # use Gromacs trjconv to extract the snapshot
+
 try:
     subprocess.call("echo Protein_LIG | {} trjconv -s {} -f {} -o {} -b {t} -e {t} -n {}/i.ndx"\
             .format(gmx_path,tpr,xtc,out_name,wd,t=timestamp),shell=True)
@@ -83,7 +131,7 @@ except:
 ########################################################
 
 # generate and run a simple PyMOL aligning script
-for state in ["IN","OUT"]:
+for state in ["IN","OUTsc"]:
     # Tell PyMOL we don't want any GUI features.
     #pymol.pymol_argv = ['pymol', '-Qic']
     # Call the function below before using any PyMOL modules.
@@ -113,6 +161,7 @@ for state in ["IN","OUT"]:
     except:
         print("ERROR: unable to copy to COMPARISON DIRECTORY")
 
+'''
 ########################################################
 #           EDIT PDB ALIGN/ RMSD COLUMNS
 ########################################################
@@ -234,5 +283,4 @@ try:
     print("SUCCESS: {} Output Reweighted Free Energy - {}".format(outfile))
 except:
     print("ERROR: reweight.py failed.")
-
-
+'''
