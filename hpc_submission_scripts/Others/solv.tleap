@@ -1,0 +1,16 @@
+source oldff/leaprc.ff14SB
+loadoff ~/amber16/dat/leap/TIP4P-D/lib/tip4pdbox.off
+loadAmberParams ~/amber16/dat/leap/TIP4P-D/parm/frcmod.ions_charmm22 
+loadAmberParams ~/amber16/dat/leap/TIP4P-D/parm/frcmod.tip4pd
+
+struct = sequence { NHIP HIP HIP GLY HIP HIP HIP GLY HIP HIP HIP GLY HIP HIP HIP GLY HIP HIP CHIP }
+solvateBox struct TIP4PDBOX 10.0 iso
+
+#addIons2 struct Cl- 0
+#addIons2 struct Na+ 0
+
+#savepdb struct MOLECULE_start.pdb
+
+#saveamberparm struct MOLECULE.prmtop MOLECULE.rst7 
+
+quit

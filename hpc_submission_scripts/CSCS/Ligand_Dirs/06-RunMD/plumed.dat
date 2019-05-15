@@ -1,0 +1,99 @@
+####################################
+#plumed.dat for Simple Metadynamics#
+####################################
+RESTART
+
+###############################################
+###DEFINE RADIUS + CALC PROT-LIG VECTOR COMP###
+###############################################
+LOAD FILE=ProjectionOnAxis.cpp
+
+WHOLEMOLECULES STRIDE=1 ENTITY0=1-5146 ENTITY1=5147-????
+
+########################
+###DEFINITION_OF_COMs###
+########################
+lig: COM ATOMS=5147-????		        # Ligand - 547 FRG
+p2_FS1: COM ATOMS=3019,4329,4744	    # 196 SER@CA, 276 VAL@CA, 302 HIS(HIE)@CA
+p2_FS2: COM ATOMS=2321,2160,4411,2411	# 152 SER@CA, 141 ILE@CA, 281 MET@CA, 158 VAL@CA
+p1: GROUP ATOMS=3754			        # 243 TRP@CA
+
+########################
+###DEFINITION_OF_ARGs###
+########################
+# CV1: pp.proj = projection on the axis. The distance from the axis to the origin (along the axis)
+# CV2: pp.ext = orthogonal distance between the ATOM(=lig) to the axis.
+# CV3: ener = energy for the well-tempered ensemble. NOT for plain metaD.
+##############################
+###PoA_CV_for_Funnel_Side-1###
+##############################
+pp: PROJECTION_ON_AXIS AXIS_ATOMS=p1,p2_FS1 ATOM=lig
+
+##############################
+###PoA_CV_for_Funnel_Side-2###
+##############################
+#pp: PROJECTION_ON_AXIS AXIS_ATOMS=p1,p2_FS2 ATOM=lig
+
+
+
+#######################
+###FUNNEL_PARAMETERS###
+#######################
+s_cent: CONSTANT VALUES=3.0      	                              # INFLEXION
+beta_cent: CONSTANT VALUES=1.5    	                              # STEEPNESS
+wall_width: CONSTANT VALUES=1.2   	                              # WIDTH (h)
+wall_buffer: CONSTANT VALUES=0.15  	                              # BUFFER (f, total width = WIDTH + BUFFER)
+lwall: LOWER_WALLS ARG=pp.proj AT=0.0 KAPPA=2000.0 EXP=2 EPS=1        # Lower Wall (the starting point of the funnel)
+uwall: UPPER_WALLS ARG=pp.proj AT=4.5 KAPPA=2000.0 EXP=2 EPS=1        # Upper Wall (the ending point of the funnel)
+
+##################################
+###########CALCULATE FUNNEL#######
+# Returns the radius of the funnel
+# at the current value of the cv
+##################################
+MATHEVAL ...
+	LABEL=wall_center
+	ARG=pp.proj,s_cent,beta_cent,wall_width,wall_buffer
+	VAR=s,sc,b,h,f
+	FUNC=h*(1./(1.+exp(b*(s-sc))))+f
+	PERIODIC=NO
+... MATHEVAL
+
+
+##############################
+#####POTENTIAL_PARAMETERS#####
+##############################
+scaling: CONSTANT VALUES=1.0
+spring: CONSTANT VALUES=3000.0
+
+##############################
+#######DEFINE_POTENTIAL#######
+##############################
+MATHEVAL ...
+	LABEL=wall_bias
+	ARG=pp.ext,spring,wall_center,scaling
+	VAR=z,k,zc,sf
+	FUNC=step(z-zc)*k*(z-zc)*(z-zc)/(sf*sf)
+	PERIODIC=NO
+... MATHEVAL
+
+finalbias: BIASVALUE ARG=wall_bias
+
+
+###############################
+########DEFINE_METAD###########
+###############################
+METAD ...
+	LABEL=meta ARG=pp.proj,pp.ext 
+	SIGMA=0.025,0.03 HEIGHT=1.5 
+	PACE=1000 FILE=HILLS 
+        GRID_MIN=-0.5,0.0 GRID_MAX=5.0,2.0 GRID_SPACING=0.005,0.06
+	BIASFACTOR=10.0 TEMP=300	
+	
+	REWEIGHTING_NGRID=1120,40
+	REWEIGHTING_NHILLS=20
+... METAD
+#GRID_MIN=0.0,0.0 GRID_MAX=2.0,2.0 GRID_BIN=160,133
+
+PRINT ARG=* STRIDE=1000 FILE=COLVAR FMT=%8.4f
+
