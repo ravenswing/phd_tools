@@ -27,9 +27,10 @@ parser.add_argument("-refpath", type=str, default='./reference.pdb', help='path 
 parser.add_argument("-gmx", type=str, default='/usr/local/gromacs/bin/gmx', help='Local Gromacs Executable Path (default: %(default)s)', required=False)
 parser.add_argument("-pypath", type=str, default='/usr/bin/python', help='Local Python Executable Path (default: %(default)s)', required=False)
 parser.add_argument("-compath", type=str, default='./IN_OUT_PDB/', help='Path for IN/OUT PDBs to make a comparison PyMOL session (default: %(default)s)', required=False)
+parser.add_argument("-weights", type=float, nargs='+', help='Weights for [ Proj, Ext, Min Dist ] (default: %(default)s)', required=False)
 
 # additional flags
-#parser.add_argument("-prot", action="store_true", help='PROTonation of histidines (default: %(default)s)')
+parser.add_argument("-nocut", action="store_true", help='Apply strict cutoff to data (default: %(default)s)')
 
 # define variable from user input arguments
 args = parser.parse_args()
@@ -38,6 +39,7 @@ fs      = args.fs
 gmx_path = args.gmx
 py_path = args.pypath
 comp_path = args.compath
+weight = args.weights
 
 ########################################################
 #                  GENERATE OUT PDB
@@ -49,7 +51,7 @@ stem = "{}-FS{}".format(pdb,fs)
 colvar = "{}/{}.COLVAR.old".format(wd,stem)
 xtc = "{}/{}_rw_fin.xtc".format(wd,stem)
 tpr = "{}/{}_ext.tpr".format(wd,pdb)
-out_name = "{}/{}_OUTsc.pdb".format(wd,stem)
+out_name = "{}/{}_OUT.pdb".format(wd,stem)
 # ensure that COLVAR file exists in the working directory
 try:
     print("../UCB-350ns_Cterm/{}/{}.colvar ./{}".format(wd,pdb,colvar))
@@ -89,11 +91,10 @@ with open(dist_xvg,'r') as f:
 # add mindist data to pd.DataFrame
 df['min_dist'] = md
 # filter the data to within basic thresholds on proj, ext and min. distance
-df = df[ (df.proj > 3.1) & (df.proj < 4.0) & (df.ext < 0.5) & (df.min_dist > 1.2) ]
+df = df[ (df.proj > 3.1) & (df.proj < 4.0) & (df.ext < 0.5) & (df.min_dist > 1.2) ] if not args.nocut \
+        else df[ (df.proj > 3.1) & (df.proj < 4.0) | (df.ext < 0.5) | (df.min_dist > 1.2) ]
 # find the maximum min. distance value
 max_min = df['min_dist'].max()
-# define weights for calculating score 1-1-1 = all equal
-weight = [1,1,1]
 # calculate the score for determining "best" OUT frame
 def calculate_score(frame):
     # optimal value of pp.proj = 3.5
@@ -131,7 +132,7 @@ except:
 ########################################################
 
 # generate and run a simple PyMOL aligning script
-for state in ["IN","OUTsc"]:
+for state in ["IN","OUT"]:
     # Tell PyMOL we don't want any GUI features.
     #pymol.pymol_argv = ['pymol', '-Qic']
     # Call the function below before using any PyMOL modules.
@@ -161,7 +162,7 @@ for state in ["IN","OUTsc"]:
     except:
         print("ERROR: unable to copy to COMPARISON DIRECTORY")
 
-'''
+
 ########################################################
 #           EDIT PDB ALIGN/ RMSD COLUMNS
 ########################################################
@@ -206,10 +207,10 @@ with open("{}/plumed_4_driver.dat".format(wd), 'w') as f:
     f.write("PRINT STRIDE=1 ARG=rmsdI.*,rmsdO.* FILE={}/{}.COLVAR.RW\n".format(wd,stem))
 # call plumed Driver to generate new CV values
 try:
-    subprocess.call("plumed driver --mf_xtc {w}/{s}_rw_fin.xtc \
+    subprocess.call("plumed driver --mf_xtc {x} \
             --plumed {w}/plumed_4_driver.dat \
             --timestep 0.002 --trajectory-stride 5000"\
-            .format(w=wd,s=stem),shell=True)
+            .format(w=wd,x=xtc),shell=True)
 except:
     print("ERROR: Driver failed")
     sys.exit()
@@ -234,6 +235,14 @@ old_COL['int_time'] = old_COL['time'].astype(int)
 old_COL = old_COL.drop_duplicates(subset='int_time',keep='last')
 # cutdown old COLVAR - select every 5th line
 old_COL = old_COL.iloc[::5,:]
+
+# cutdown and save GISMO COLVAR file from original COLVAR(3501 lines)
+gis_COL = old_COL.iloc[::10,:]
+gismo_COL_path = "{}/{}.old.GIScolvar".format(wd,stem)
+with open(gismo_COL_path,'w') as f:
+    f.write("#! FIELDS "+" ".join(list(gis_COL.columns.values))+"\n")
+gis_COL.to_csv(gismo_COL_path,sep=" ",header=False,index=False,mode='a')
+
 # read in new COLVAR header for column names
 with open(new_COL_path) as f:
     head = f.readlines()[0]
@@ -253,13 +262,18 @@ column_order = ['time','pp.proj','pp.ext','meta.bias','rmsdI','rmsdO']
 comb_COL = comb_COL[column_order]
 # ensure a reasonable number of decimal places in output
 comb_COL = comb_COL.round(8)
-# define output COLVAR name
+
 comb_COL_path = "{}/{}.COLVAR.combined".format(wd,stem)
-# write new header for COLVAR
 with open(comb_COL_path,'w') as f:
     f.write("#! FIELDS "+" ".join(list(comb_COL.columns.values))+"\n")
-# write out new combined COLVAR
 comb_COL.to_csv(comb_COL_path,sep=" ",header=False,index=False,mode='a')
+
+# cutdown and save GISMO COLVAR file from reweighted COLVAR (3501 lines)
+comb_COL = comb_COL.iloc[::10,:]
+gismo_COL_path = "{}/{}.RW.GIScolvar".format(wd,stem)
+with open(gismo_COL_path,'w') as f:
+    f.write("#! FIELDS "+" ".join(list(comb_COL.columns.values))+"\n")
+comb_COL.to_csv(gismo_COL_path,sep=" ",header=False,index=False,mode='a')
 
 ########################################################
 #                   RUN REWEIGHT.PY
@@ -283,4 +297,16 @@ try:
     print("SUCCESS: {} Output Reweighted Free Energy - {}".format(outfile))
 except:
     print("ERROR: reweight.py failed.")
-'''
+
+########################################################
+#               CUTDOWN GISMO TRAJ.
+########################################################
+
+gismo_XTC_path = "{}/{}_GISMO.xtc".format(wd,stem) 
+
+try:
+    subprocess.call("echo Backbone Protein_LIG | {} trjconv -s {} -f {} -o {} -fit rot+trans -dt 100 -n {}/i.ndx"\
+            .format(gmx_path,tpr,xtc,gismo_XTC_path,wd,t=timestamp),shell=True)
+except:
+    print("ERROR: trjconv (GISMO) failed.")
+    sys.exit()
