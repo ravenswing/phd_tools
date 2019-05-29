@@ -90,17 +90,67 @@ for i in np.arange(np.prod(size))[1:]:
             .format(stem,i,(args.len*i))
     with open('temp.py','a') as f:
         f.write(alter_line)
-# save output pdb with detailed naming 
+# save output pdb with detailed naming in new directory
+outname = "brush_{}_{}x{}_{}A".format(stem,size[0],size[1],args.sep)
 with open('temp.py','a') as f:
-    f.write("cmd.extract('tosave', 'all')\ncmd.save('brush_{}_{}x{}_{}A.pdb', 'tosave')"\
-            .format(stem,size[0],size[1],args.sep))
+    f.write("cmd.extract('tosave', 'all')\ncmd.save('{o}/{o}.pdb', 'tosave')"\
+            .format(o=outname))
 
 #########################################################
 #                       RUN PYMOL
 ######################################################### 
 
 try:
+    subprocess.call("mkdir {}".format(outname),shell=True)
     subprocess.call("pymol -cqi temp.py",shell=True)
 except:
     print("ERROR: PyMol command failed.")
+
+#########################################################
+#               GENERATE GMX MAKE SCRIPT
+######################################################### 
+
+try:
+    subprocess.call("cp -r amber_disp.ff {}/".format(outname),shell=True)
+    subprocess.call("cp prep.mdp {}/".format(outname),shell=True)
+except:
+    print('ERROR:copy')
+
+
+ter_search = "HA3 GLY * "
+ter_command = "sed -i -e \"/{}$num/a TER\" ${{name}}.pdb".format(ter_search)
+dim_xy = [ 2*N*(args.rad/10) + N*(args.sep/10) for N in size]
+dim_z = np.ceil(0.35 * args.len + 2.4 + 1)
+box_command = "echo -e \"System\n System\" | $GMX editconf -f ${{name}}_b3.gro -o ${{name}}_box.gro -bt triclinic -box {} {} {} -n i.ndx".format(dim_xy[0],dim_xy[1],dim_z)
+index_command = "echo -e \""
+for i in np.arange(np.prod(size)):
+    index_command += " ri {} |".format((i+1)*args.len)
+
+index_command += "\\n 19 & 4\\n name 20 Anchor\\n q\" | $GMX make_ndx -f ${name}.gro -o i.ndx"
+
+
+with open('NEW_cubic.sh','r') as f:
+    l= f.read()
+
+l = l.replace("NAME",       "export name={}".format(outname))
+l = l.replace("NUMPEP",     str(np.prod(size)))
+l = l.replace("LENPEP",     str(args.len))
+l = l.replace("TERCOMMAND", ter_command)
+l = l.replace("BOXCOMMAND", box_command)
+l = l.replace("NDXCOMMAND", index_command)
+
+with open('{}/gmx_make.sh'.format(outname),'w') as f:
+    f.write(l)
+
+
+#########################################################
+#               RUN GMX MAKE SCRIPT
+######################################################### 
+
+try:
+    #subprocess.call("bash {}/gmx_make.sh".format(outname),shell=True)
+    proc = subprocess.Popen("bash gmx_make.sh", cwd="{}".format(outname), shell=True)
+    proc.communicate()
+except:
+    print('ERROR:gmx')
 
