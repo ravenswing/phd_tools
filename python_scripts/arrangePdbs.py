@@ -86,8 +86,8 @@ for line in np.arange(np.prod(size)):
         f.write(translate_line)
 # pymol alter to renumber residues into continuous series
 for i in np.arange(np.prod(size))[1:]:
-    alter_line = "cmd.alter(\"{}_{}\" , 'resi=str(int(resi)+{})')\n"\
-            .format(stem,i,(args.len*i))
+    alter_line = "cmd.alter(\"{}_{}\" , 'resi=str(int(resi)+{l})')\n"\
+            .format(stem,i,l=(args.len+1)*i if "_Ncapped" in args.pdb else (args.len*i))
     with open('temp.py','a') as f:
         f.write(alter_line)
 # save output pdb with detailed naming in new directory
@@ -118,13 +118,24 @@ except:
 
 
 ter_search = "HA3 GLY * "
-ter_command = "sed -i -e \"/{}$num/a TER\" ${{name}}.pdb".format(ter_search)
+ter_command = "sed -i -e \"/{}$num /a TER\" ${{name}}.pdb".format(ter_search)
+ri = [1,10,11,19]
+ri_command ="ri {n[0]} | ri {n[1]}-{n[2]} | ri {n[3]}".format(n=[x+1 for x in ri] if "_Ncapped" in args.pdb else ri)
+
 dim_xy = [ 2*N*(args.rad/10) + N*(args.sep/10) for N in size]
 dim_z = np.ceil(0.35 * args.len + 2.4 + 1)
 box_command = "echo -e \"System\n System\" | $GMX editconf -f ${{name}}_b3.gro -o ${{name}}_box.gro -bt triclinic -box {} {} {} -n i.ndx".format(dim_xy[0],dim_xy[1],dim_z)
+
 index_command = "echo -e \""
-for i in np.arange(np.prod(size)):
-    index_command += " ri {} |".format((i+1)*args.len)
+if "_Ncapped" in args.pdb: 
+    print("\n\nN Capping Detected\n\n")
+    num_command = "num=$(($i * {} ))".format(args.len+1)
+    for i in np.arange(np.prod(size)):
+        index_command += " ri {} |".format((i+1)*(args.len+1))
+else:
+    num_command = "num=$(($i * {}))".format(args.len)
+    for i in np.arange(np.prod(size)):
+        index_command += " ri {} |".format((i+1)*args.len)
 
 index_command += "\\n 19 & 4\\n name 20 Anchor\\n q\" | $GMX make_ndx -f ${name}.gro -o i.ndx"
 
@@ -134,8 +145,9 @@ with open('NEW_cubic.sh','r') as f:
 
 l = l.replace("NAME",       "export name={}".format(outname))
 l = l.replace("NUMPEP",     str(np.prod(size)))
-l = l.replace("LENPEP",     str(args.len))
+l = l.replace("NUMCOMMAND", num_command)
 l = l.replace("TERCOMMAND", ter_command)
+l = l.replace("RICOMMAND", ri_command)
 l = l.replace("BOXCOMMAND", box_command)
 l = l.replace("NDXCOMMAND", index_command)
 

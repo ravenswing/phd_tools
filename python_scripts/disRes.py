@@ -41,6 +41,17 @@ for i in list(range(9)):
         print('ERROR:genrestr')
 
 try:
+    subprocess.call("cat disres_peptide0.itp > Disres.itp", shell=True)
+except:
+    print('ERROR:cat1')
+
+for i in list(range(9))[1:]:
+    try:
+        subprocess.call("tail -n +5 disres_peptide{}.itp >> Disres.itp".format(i), shell=True)
+    except:
+        print('ERROR:cat2') 
+
+try:
     subprocess.call("rm \\#*", shell=True)
 except:
     print('ERROR:rm')
