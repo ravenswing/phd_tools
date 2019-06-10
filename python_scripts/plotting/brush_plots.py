@@ -170,9 +170,13 @@ else:
     fontpath = '/home/rhys/.fonts/iosevka/iosevka-term-regular.ttf'
     prop = font_manager.FontProperties(fname=fontpath)
     matplotlib.rcParams['font.family'] = prop.get_name()
+    
+    hyb_col = '#ffc000'
+    hel_col = '#002C56'
+    hel_col2 = '#66809A' 
 
     window_size = 500
-    font_sizes=[34,30]
+    font_sizes=[40,36]
     x = np.arange(50000)
     for d in ['hel','hyb']:
         data[d+'_rm'] = data['tot_'+d].rolling(window_size, center=True).mean()
@@ -180,31 +184,32 @@ else:
         data[d+'_min'] = data[d+'_rm'] + data[d+'_std']
         data[d+'_max'] = data[d+'_rm'] - data[d+'_std']
     data.to_csv(mol+'_data_out.csv')
-    fig, ax2 = plt.subplots(figsize=(20,16))
+    fig, ax1 = plt.subplots(figsize=(20,16))
 
-    
-    ax2.plot(data['hyb_rm'], color='#ffc000', linewidth=4.0)
-    ax2.fill_between(x,data['hyb_min'], data['hyb_max'], alpha=.3, facecolor='#ffc000')
-    ax2.set_ylabel('No. Hydrogen Bonds',fontweight='medium', fontsize=font_sizes[0])
-    ax2.set_ylim(-0.1, 5.0)
-    ax2.set_xlabel('Time (ns)',fontweight='medium', fontsize=font_sizes[0])
-    ax2.set_xlim(0.0, 50000.0)
+    ax1.plot(data['hel_rm'], color=hel_col, linewidth=4.0, zorder=21)
+    ax1.fill_between(x,data['hel_min'], data['hel_max'], alpha=.3, facecolor=hel_col, zorder=20)
+    ax1.set_ylabel('Percentage Helicity',fontweight='medium', fontsize=font_sizes[0] )
+    ax1.set_ylim(-2.0, 100.0)
+    ax1.set_xlabel('Time (ns)',fontweight='medium', fontsize=font_sizes[0])
+    ax1.set_xlim(0.0, 50000.0)
     plt.yticks(fontweight='medium', fontsize=font_sizes[1])  
     
-    #ax2.set_xlim(0.0, 50000.0)
-    ax1 = ax2.twinx()
-    ax1.plot(data['hel_rm'], color='xkcd:royal blue', linewidth=4.0, zorder=21)
-    ax1.fill_between(x,data['hel_min'], data['hel_max'], alpha=.3, facecolor='xkcd:royal blue', zorder=20)
-    ax1.set_ylabel('Total DSSP Score',fontweight='medium', fontsize=font_sizes[0] )
-    ax1.set_ylim(-2.0, 100.0)
-
-
+    ax2 = ax1.twinx()
+    
+    ax2.plot(data['hyb_rm'], color=hyb_col, linewidth=4.0)
+    ax2.fill_between(x,data['hyb_min'], data['hyb_max'], alpha=.3, facecolor=hyb_col)
+    ax2.set_ylabel('No. Hydrogen Bonds',fontweight='medium', fontsize=font_sizes[0])
+    ax2.set_ylim(-0.1, 5.0)
+    plt.yticks(fontweight='medium', fontsize=font_sizes[1]) 
+     
 
     ns = np.linspace(0,1000,11, dtype='int')
     ts = np.linspace(0, 50000, 11)
-    ax2.set_xticks(ticks=ts )
-    ax2.set_xticklabels(labels=ns,fontweight='medium', fontsize=font_sizes[1])
-    plt.yticks(fontweight='medium', fontsize=font_sizes[1]) 
+    ax1.set_xticks(ticks=ts )
+    ax1.set_xticklabels(labels=ns,fontweight='medium', fontsize=font_sizes[1])
+#    ax1.set_title('$(E_4K_4)_2$ Helical Content and Hydrogen Bond Formation', fontweight='medium',fontsize=font_sizes[0], pad=20)
+    ax1.set_title('$(EK)_5$ Helical Content and Hydrogen Bond Formation', fontweight='medium',fontsize=font_sizes[0], pad=20)
+    #ax1.set_title('AEAK... Helical Content and Hydrogen Bond Formation', fontweight='medium',fontsize=font_sizes[0], pad=20)
 
     fig.savefig(figure_path+mol+'_double_plot.png', bbox_inches='tight', transparent=True, dpi=300)
 
