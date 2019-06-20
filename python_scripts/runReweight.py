@@ -16,21 +16,36 @@ import numpy as np
 #                   PARSING INPUTS
 ########################################################
 
-parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description=d, epilog=" ")
+parser = argparse.ArgumentParser(\
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=d, epilog=" ")
 
 # required arguments
-parser.add_argument("-pdb", type=str, default='5ai0', help='PDB code (default: %(default)s)')
-parser.add_argument("-fs", type=int, default=1, help='fs (default: %(default)s)')
-parser.add_argument("-refpath", type=str, default='./reference.pdb', help='path to reference pdb for alignment in PyMol (default: %(default)s)')
+parser.add_argument("-pdb", type=str, default='5ai0', 
+                    help='PDB code (default: %(default)s)')
+parser.add_argument("-fs", type=int, default=1, 
+                    help='fs (default: %(default)s)')
+parser.add_argument("-refpath", type=str, default='./reference.pdb', 
+                    help='path to reference pdb for alignment in PyMol' + 
+                        '(default: %(default)s)')
 
 # optional arguments
-parser.add_argument("-gmx", type=str, default='/usr/local/gromacs/bin/gmx', help='Local Gromacs Executable Path (default: %(default)s)', required=False)
-parser.add_argument("-pypath", type=str, default='/usr/bin/python', help='Local Python Executable Path (default: %(default)s)', required=False)
-parser.add_argument("-compath", type=str, default='./IN_OUT_PDB/', help='Path for IN/OUT PDBs to make a comparison PyMOL session (default: %(default)s)', required=False)
-parser.add_argument("-weights", type=float, nargs='+', help='Weights for [ Proj, Ext, Min Dist ] (default: %(default)s)', required=False)
+parser.add_argument("-gmx", type=str, default='/usr/local/gromacs/bin/gmx', 
+                    help='Local Gromacs Executable Path(default: %(default)s)',
+                    required=False)
+parser.add_argument("-pypath", type=str, default='/usr/bin/python', 
+                    help='Local Python Executable Path (default: %(default)s)',
+                    required=False)
+parser.add_argument("-compath", type=str, default='./IN_OUT_PDB/',
+                    help='Path for IN/OUT PDBs to make a comparison PyMOL' +
+                    'session (default: %(default)s)', required=False)
+parser.add_argument("-weights", type=float, nargs='+', 
+                    help='Weights for [ Proj, Ext, Min Dist ] ' +
+                    '(default: %(default)s)', required=False)
 
 # additional flags
-parser.add_argument("-nocut", action="store_true", help='Apply strict cutoff to data (default: %(default)s)')
+parser.add_argument("-nocut", action="store_true", 
+                    help='Apply strict cutoff to data (default: %(default)s)')
 
 # define variable from user input arguments
 args = parser.parse_args()
@@ -91,8 +106,10 @@ with open(dist_xvg,'r') as f:
 # add mindist data to pd.DataFrame
 df['min_dist'] = md
 # filter the data to within basic thresholds on proj, ext and min. distance
-df = df[ (df.proj > 3.1) & (df.proj < 4.0) & (df.ext < 0.5) & (df.min_dist > 1.2) ] if not args.nocut \
-        else df[ (df.proj > 3.1) & (df.proj < 4.0) | (df.ext < 0.5) | (df.min_dist > 1.2) ]
+df = df[ (df.proj > 3.1) & (df.proj < 4.0) \
+            & (df.ext < 0.5) & (df.min_dist > 1.2) ] if not args.nocut \
+        else df[ (df.proj > 3.1) & (df.proj < 4.0) \
+        | (df.ext < 0.5) | (df.min_dist > 1.2) ]
 # find the maximum min. distance value
 max_min = df['min_dist'].max()
 # calculate the score for determining "best" OUT frame
@@ -112,7 +129,7 @@ timestamp = df.loc[df['score'].idxmin()].int_time
 print(timestamp, type(timestamp))
 
 #### OLD METHOD OF RANKING FRAMES ####
-# sort by time so as to extract last suitable frame, i.e. greater difference from IN
+# sort by time so as to extract last suitable frame, i.e. greater
 #df.sort_values('time',ascending=False, inplace=True)
 # find the value where 3.4 < pp.proj < 3.5
 #df = df[ df['proj'].between(3.4,3.5,inclusive=True) ]
@@ -121,7 +138,8 @@ print(timestamp, type(timestamp))
 # use Gromacs trjconv to extract the snapshot
 
 try:
-    subprocess.call("echo Protein_LIG | {} trjconv -s {} -f {} -o {} -b {t} -e {t} -n {}/i.ndx"\
+    subprocess.call("echo Protein_LIG | {} trjconv -s {} -f {} -o {} " +
+            "-b {t} -e {t} -n {}/i.ndx"\
             .format(gmx_path,tpr,xtc,out_name,wd,t=timestamp),shell=True)
 except:
     print("ERROR: trjconv failed.")
@@ -158,7 +176,8 @@ for state in ["IN","OUT"]:
         sys.exit()
     # copy the pdbs to a comparison folder
     try:
-        subprocess.call("cp {}_al.pdb {}".format(mobile_fn, comp_path), shell=True)
+        subprocess.call("cp {}_al.pdb {}".format(mobile_fn, comp_path),
+                        shell=True)
     except:
         print("ERROR: unable to copy to COMPARISON DIRECTORY")
 
@@ -202,9 +221,12 @@ for state in ["IN","OUT"]:
 
 # generate plumed - Driver command file
 with open("{}/plumed_4_driver.dat".format(wd), 'w') as f:
-    f.write("rmsdI: RMSD REFERENCE={}/{}_IN_al_ed.pdb TYPE=OPTIMAL\n".format(wd,stem))
-    f.write("rmsdO: RMSD REFERENCE={}/{}_OUT_al_ed.pdb TYPE=OPTIMAL\n".format(wd,stem))
-    f.write("PRINT STRIDE=1 ARG=rmsdI.*,rmsdO.* FILE={}/{}.COLVAR.RW\n".format(wd,stem))
+    f.write("rmsdI: RMSD REFERENCE={}/{}_IN_al_ed.pdb TYPE=OPTIMAL\n"\
+            .format(wd,stem))
+    f.write("rmsdO: RMSD REFERENCE={}/{}_OUT_al_ed.pdb TYPE=OPTIMAL\n"\
+            .format(wd,stem))
+    f.write("PRINT STRIDE=1 ARG=rmsdI.*,rmsdO.* FILE={}/{}.COLVAR.RW\n"\
+            .format(wd,stem))
 # call plumed Driver to generate new CV values
 try:
     subprocess.call("plumed driver --mf_xtc {x} \
@@ -256,7 +278,9 @@ if old_COL.shape[0] != new_COL.shape[0]:
 # round timestamps to ensure successful merging
 new_COL['int_time'] = new_COL['time'].astype(int)
 # merge COLVARs on rounded timestamp & select necessary columns
-comb_COL = pd.merge(new_COL,old_COL[['pp.proj','pp.ext','meta.bias','int_time']],on='int_time')
+comb_COL = pd.merge(new_COL
+                    old_COL[['pp.proj','pp.ext','meta.bias','int_time']],
+                    on='int_time')
 # reorder the columns for output 
 column_order = ['time','pp.proj','pp.ext','meta.bias','rmsdI','rmsdO']
 comb_COL = comb_COL[column_order]
@@ -293,7 +317,8 @@ try:
             -biascol 4 \
             -rewcol 5 6 \
             -outfile {of} \
-            -v".format(pp=py_path,w=wd,cCp=comb_COL_path,of=outfile),shell=True)
+            -v".format(pp=py_path,w=wd,cCp=comb_COL_path,of=outfile),
+                        shell=True)
     print("SUCCESS: {} Output Reweighted Free Energy - {}".format(outfile))
 except:
     print("ERROR: reweight.py failed.")
@@ -305,8 +330,11 @@ except:
 gismo_XTC_path = "{}/{}_GISMO.xtc".format(wd,stem) 
 
 try:
-    subprocess.call("echo Backbone Protein_LIG | {} trjconv -s {} -f {} -o {} -fit rot+trans -dt 100 -n {}/i.ndx"\
-            .format(gmx_path,tpr,xtc,gismo_XTC_path,wd,t=timestamp),shell=True)
+    subprocess.call("echo Backbone Protein_LIG | {} trjconv -s {} -f {} -o {}"+
+                    "-fit rot+trans -dt 100 -n {}/i.ndx"\
+                    .format(gmx_path,tpr,xtc,gismo_XTC_path,wd,t=timestamp),
+                    shell=True)
 except:
     print("ERROR: trjconv (GISMO) failed.")
     sys.exit()
+# this is to test push on the new GIT
