@@ -21,30 +21,30 @@ parser = argparse.ArgumentParser(\
         description=d, epilog=" ")
 
 # required arguments
-parser.add_argument("-pdb", type=str, default='5ai0', 
+parser.add_argument("-pdb", type=str, default='5ai0',
                     help='PDB code (default: %(default)s)')
-parser.add_argument("-fs", type=int, default=1, 
+parser.add_argument("-fs", type=int, default=1,
                     help='fs (default: %(default)s)')
-parser.add_argument("-refpath", type=str, default='./reference.pdb', 
-                    help='path to reference pdb for alignment in PyMol' + 
+parser.add_argument("-refpath", type=str, default='./reference.pdb',
+                    help='path to reference pdb for alignment in PyMol' +
                         '(default: %(default)s)')
 
 # optional arguments
-parser.add_argument("-gmx", type=str, default='/usr/local/gromacs/bin/gmx', 
+parser.add_argument("-gmx", type=str, default='/usr/local/gromacs/bin/gmx',
                     help='Local Gromacs Executable Path(default: %(default)s)',
                     required=False)
-parser.add_argument("-pypath", type=str, default='/usr/bin/python', 
+parser.add_argument("-pypath", type=str, default='/usr/bin/python',
                     help='Local Python Executable Path (default: %(default)s)',
                     required=False)
 parser.add_argument("-compath", type=str, default='./IN_OUT_PDB/',
                     help='Path for IN/OUT PDBs to make a comparison PyMOL' +
                     'session (default: %(default)s)', required=False)
-parser.add_argument("-weights", type=float, nargs='+', 
+parser.add_argument("-weights", type=float, nargs='+',
                     help='Weights for [ Proj, Ext, Min Dist ] ' +
                     '(default: %(default)s)', required=False)
 
 # additional flags
-parser.add_argument("-nocut", action="store_true", 
+parser.add_argument("-nocut", action="store_true",
                     help='Apply strict cutoff to data (default: %(default)s)')
 
 # define variable from user input arguments
@@ -76,7 +76,7 @@ except:
     print("ERROR: cannot find old COLVAR.")
     sys.exit()
 # read in the old COLVAR file
-with open(colvar) as f: 
+with open(colvar) as f:
     lines = f.readlines()
     data = [l for l in lines if l[0] not in ("@", "#")]
     data = [l.split()[:3] for l in data]
@@ -102,7 +102,7 @@ except:
 # read in mindist output
 with open(dist_xvg,'r') as f:
     lines = f.readlines()
-    md = [float(l.split()[1]) for l in lines if l[0] not in ("@", "#")] 
+    md = [float(l.split()[1]) for l in lines if l[0] not in ("@", "#")]
 # add mindist data to pd.DataFrame
 df['min_dist'] = md
 # filter the data to within basic thresholds on proj, ext and min. distance
@@ -190,28 +190,28 @@ for state in ["IN","OUT"]:
     filename = "{}_al.pdb".format(mobile_fn)
     with open(filename) as f:
         lines = f.readlines()
-        atom_data = [l for l in lines if l[0] not in ("@", "#")] 
+        atom_data = [l for l in lines if l[0] not in ("@", "#")]
 
     # reassign the final two columns ( ALIGN(Y/N) and RMSD(Y/N) )
     # for the ligand:               ALIGN = N, RMSD = Y
     # for backbone protein atoms:   ALIGN = Y, RMSD = N
     edited_data = []
     lig_res = atom_data[-2].split()[3]
-    for line in atom_data:      
+    for line in atom_data:
         if line.split()[0] in ["TER","END"]: pass
         elif line.split()[3] == lig_res:
-            s = list(line) 
+            s = list(line)
             s[-19] = "1"
             s[-25] = "0"
             line = "".join(s)
         elif line.split()[2] not in ["CA","C","N","O"]:
-            s = list(line)            
+            s = list(line)
             s[-25] = "0"
             line = "".join(s)
         edited_data.append(line)
     # save edited pdb
     ed_file = filename[:-4]+"_ed.pdb"
-    with open(ed_file, 'w') as f: 
+    with open(ed_file, 'w') as f:
         for line in edited_data:
             f.write(line)
 
@@ -327,7 +327,7 @@ except:
 #               CUTDOWN GISMO TRAJ.
 ########################################################
 
-gismo_XTC_path = "{}/{}_GISMO.xtc".format(wd,stem) 
+gismo_XTC_path = "{}/{}_GISMO.xtc".format(wd,stem)
 
 try:
     subprocess.call("echo Backbone Protein_LIG | {} trjconv -s {} -f {} -o {}"+
