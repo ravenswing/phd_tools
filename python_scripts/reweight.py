@@ -23,27 +23,26 @@ d = """
 ========================================================================
 Time-independent Free Energy reconstruction script (a.k.a. reweight)
 based on the algorithm proposed by Tiwary and Parrinello JPCB 2014
- 
 
 Typical usages:
 
 1) to project your metadynamics FES on CVs you did not
    bias during your metadynamics run
 
-2) to estimate the error on your FE profiles by comparing them with  
-   the FE profiles obtained integrating the metadynamics bias 
+2) to estimate the error on your FE profiles by comparing them with
+   the FE profiles obtained integrating the metadynamics bias
    e.g. using plumed sum_hills
 
 
 Example:
 
-reweight.py -bsf 5.0 -kt 2.5 -fpref fes2d- -nf 80 -fcol 3 
+reweight.py -bsf 5.0 -kt 2.5 -fpref fes2d- -nf 80 -fcol 3
             -colvar COLVAR -biascol 4 -rewcol 2 3
 
-takes as input 80 FES files: fes2d-0.dat, fes2d-1.dat, ..., fes2d-79.dat 
+takes as input 80 FES files: fes2d-0.dat, fes2d-1.dat, ..., fes2d-79.dat
 obtained using a well-tempered metadynamics with bias factor 5
 and containing the free energy in the 3rd column and the COLVAR file
-containing the bias in the 4th column and outputs the FES projected 
+containing the bias in the 4th column and outputs the FES projected
 on the CVs in column 2 and 3 of COLVAR file.
 
 
@@ -113,7 +112,7 @@ numrewt = len(col_rewt)
 # list with column numbers of your datafile containing the bias
 # and any external bias/restraint/walls
 # NB: the first column is 0
-col_bias = [ i-1 for i in args.biascol ] 
+col_bias = [ i-1 for i in args.biascol ]
 
 # NB: if I don't define -min or -max in the input, I will find their value scanning the COLVAR file
 s_min = args.min
@@ -209,11 +208,11 @@ for row in colvar:
         val = row[col]
 
         if calc_smin:
-            if val < s_min[i] : s_min[i] = val 
+            if val < s_min[i] : s_min[i] = val
         if calc_smax:
             if val > s_max[i] : s_max[i] = val
 
-if verbose: 
+if verbose:
     for i in range(numrewt):
         print "CV[%d] range: %10.5f ; %10.5f" % (i,s_min[i],s_max[i])
 
@@ -241,8 +240,7 @@ for row in colvar:
         col = col_rewt[j]
         val = row[col]
         diff = np.array([ abs(gval - val) for gval in s_grid[j] ])
-        locs[j] = [diff.argmin()] # find position of minimum in diff array
-    
+        locs[j] = [diff.argmin()] # find position of minimum in diff array 
     #find closest c(t) for this point of time
     indx = int(ceil(float(i)/numcolv*numdat))-1
 

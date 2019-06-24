@@ -32,13 +32,22 @@ servers = { 'archer':   'rhys@login.archer.ac.uk',
             'mn':       'cnio96742@dt01.bsc.es',
         }
 
-parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description=d, epilog=" ")
-parser.add_argument("-ncv", type=int, default=1, help='input number of CVs (default: %(default)s)')
-parser.add_argument("-svr", type=str, default='archer', help='Remote Server (default: %(default)s)')
-parser.add_argument("-svp", type=str, default='/work/e280/e280/rhys/', help='Remote Server Path ; where all system directories are stored(default: %(default)s)')
-parser.add_argument("-s", type=str, default='/work/e280/e280/rhys/', help='System Name (default: %(default)s)')
-parser.add_argument("-d", type=str, default='06-RunMD', help='Directory Name (default: %(default)s)')
-parser.add_argument("-vmax", type=float, default='-100.0', help='ColorMap Vmax (default: %(default)s)',required=False)
+parser = argparse.ArgumentParser(\
+                        formatter_class=argparse.RawDescriptionHelpFormatter,
+                        description=d, epilog=" ")
+parser.add_argument("-ncv", type=int, default=1,
+                    help='input number of CVs (default: %(default)s)')
+parser.add_argument("-svr", type=str, default='archer',
+                    help='Remote Server (default: %(default)s)')
+parser.add_argument("-svp", type=str, default='/work/e280/e280/rhys/',
+                    help='Remote Server Path ; where all system directories '+
+                        'are stored(default: %(default)s)')
+parser.add_argument("-s", type=str, default='/work/e280/e280/rhys/',
+                    help='System Name (default: %(default)s)')
+parser.add_argument("-d", type=str, default='06-RunMD',
+                    help='Directory Name (default: %(default)s)')
+parser.add_argument("-vmax", type=float, default='-100.0',
+                    help='ColorMap Vmax (default: %(default)s)',required=False)
 
 
 ########################################################
@@ -60,18 +69,32 @@ if DOWNLOAD:
     for mol in mols:
     ## make new directory and download COLVAR & HILLS files
         try:
-            subprocess.call("mkdir ./monitor/{}_{}/".format(mol,folder),shell=True)
-            subprocess.call("scp {}:{}{f}/{m}/{f}/COLVAR monitor/{m}_{f}/{m}.colvar".format(remote_svr,remote_pth,f=folder,m=mol), shell=True)
-            print("scp {}:{}{f}/{m}/{f}/COLVAR monitor/{m}_{f}/{m}.colvar".format(remote_svr,remote_pth,f=folder,m=mol))
-            subprocess.call("scp {}:{}{f}/{m}/{f}/HILLS monitor/{m}_{f}/{m}.hills".format(remote_svr,remote_pth,f=folder,m=mol), shell=True)
+            subprocess.call("mkdir ./monitor/{}_{}/".format(mol,folder),
+                            shell=True)
+            subprocess.call("scp {}:{}{f}/{m}/{f}/COLVAR "+
+                            "monitor/{m}_{f}/{m}.colvar"\
+                            .format(remote_svr,remote_pth,f=folder,m=mol),
+                            shell=True)
+            print("scp {}:{}{f}/{m}/{f}/COLVAR monitor/{m}_{f}/{m}.colvar"\
+                    .format(remote_svr,remote_pth,f=folder,m=mol))
+            subprocess.call("scp {}:{}{f}/{m}/{f}/HILLS "+
+                            "monitor/{m}_{f}/{m}.hills"\
+                            .format(remote_svr,remote_pth,f=folder,m=mol),
+                            shell=True)
         except:
-            print('ERROR: Unable to sync COLVAR/HILLS files from remote server.')
+            print('ERROR: Unable to sync COLVAR/HILLS files "+
+                    "from remote server.')
 if SUMHILLS:
     for mol in mols:
     ## run SUM_HILLS to generate free energy surface
         try:
-            subprocess.call("echo \'#!/bin/bash/\' > ./sumhills.sh", shell=True)
-            subprocess.call('echo \"plumed sum_hills --hills monitor/{m}_{f}/{m}.hills --outfile monitor/{m}_{f}/{m}.fes --mintozero \" >> ./sumhills.sh'.format(f=folder,m=mol), shell=True)
+            subprocess.call("echo \'#!/bin/bash/\' > ./sumhills.sh",
+                    shell=True)
+            subprocess.call('echo \"plumed sum_hills '+
+                    '--hills monitor/{m}_{f}/{m}.hills '+
+                    '--outfile monitor/{m}_{f}/{m}.fes '+
+                    '--mintozero \" >> ./sumhills.sh'\
+                            .format(f=folder,m=mol), shell=True)
             os.system('bash sumhills.sh')
         except:
             print('ERROR: Unable to run SUM_HILLS')
@@ -100,12 +123,13 @@ for mol in mols:
         t = int(5 * round((HILLS[mol][0][-1]/1000)/5))
         plt.figure()
         plt.plot([x/1000 for x in HILLS[mol][0]],HILLS[mol][1], label=mol)
-        plt.legend() 
+        plt.legend()
         plt.title('{m}  |  {}  |  Heights  |  {}ns'.format(folder,t,m=mol))
-        plt.savefig('monitor/{m}_{f}/{m}-{f}-Heights_{}.png'.format(t,f=folder,m=mol),bbox_inches='tight', dpi=300)
-        
+        plt.savefig('monitor/{m}_{f}/{m}-{f}-Heights_{}.png'\
+                .format(t,f=folder,m=mol),bbox_inches='tight', dpi=300)
+
         FES = mols.copy()
-        FES[mol] = [[],[]] 
+        FES[mol] = [[],[]]
         filename = './monitor/{m}_{f}/{m}.fes'.format(f=folder,m=mol)
         with open(filename) as f:
             lines = f.readlines()
@@ -119,31 +143,32 @@ for mol in mols:
         plt.ylabel('FE (kcal/mol)')
         plt.xlabel(r'$\alpha$RMSD')
         plt.ylim([0, 20])
-        plt.title('{m}'.format(m=mol)) 
-        plt.savefig('monitor/{m}_{f}/{m}-{f}-FES_{}.png'.format(t,f=folder,m=mol),bbox_inches='tight', dpi=300)
-        
-        COL = mols.copy()   
+        plt.title('{m}'.format(m=mol))
+        plt.savefig('monitor/{m}_{f}/{m}-{f}-FES_{}.png'\
+                .format(t,f=folder,m=mol),bbox_inches='tight', dpi=300)
+
+        COL = mols.copy()
         filename = './monitor/{m}_{f}/{m}.colvar'.format(f=folder,m=mol)
         with open(filename) as f:
             lines = f.readlines()
             var = lines[0].split()[3]
             data = [l for l in lines if l[0] not in ("@", "#")]
-            data = [[float(val) for val in line.split()] for line in data] 
+            data = [[float(val) for val in line.split()] for line in data]
         COL[mol] = [[]]*len(data[0])
         for i in np.arange(len(data[0])):
-            COL[mol][i] = [l[i] for l in data]  
+            COL[mol][i] = [l[i] for l in data]
         plt.figure()
         plt.plot([x/1000 for x in COL[mol][0]],COL[mol][1], label=mol)
-        plt.legend() 
+        plt.legend()
         plt.title('{m}  |  {}  |  {}  |  {}ns'.format(folder,var,t,m=mol))
-        plt.savefig('monitor/{m}_{f}/{m}-{f}_{}_{}.png'.format(var,t,f=folder,m=mol),bbox_inches='tight', dpi=300)
-         
+        plt.savefig('monitor/{m}_{f}/{m}-{f}_{}_{}.png'\
+                .format(var,t,f=folder,m=mol),bbox_inches='tight', dpi=300)
+
 ########################################################
 #                       FOR 2 CVs
 ########################################################
-    if ncv == 2: 
+    if ncv == 2:
         vmax = args.vmax
-       
         HILLS = mols.copy()
         HILLS[mol] = [[],[]]
         filename = './monitor/{m}_{f}/{m}.hills'.format(f=folder,m=mol)
@@ -156,10 +181,10 @@ for mol in mols:
         t = int(5 * round((HILLS[mol][0][-1]/1000)/5))
         plt.figure()
         plt.plot([x/1000 for x in HILLS[mol][0]],HILLS[mol][1], label=mol)
-        plt.legend() 
+        plt.legend()
         plt.title('{m}  |  {}  |  Heights  |  {}ns'.format(folder,t,m=mol))
-        plt.savefig('monitor/{m}_{f}/{m}-{f}_Heights_{}.png'.format(t,f=folder,m=mol),bbox_inches='tight', dpi=300)
-    
+        plt.savefig('monitor/{m}_{f}/{m}-{f}_Heights_{}.png'\
+                .format(t,f=folder,m=mol),bbox_inches='tight', dpi=300)
     ## read in and remove blanks from .fes file 
         FES = mols.copy()
         FES[mol] = [[],[],[]]
@@ -182,17 +207,16 @@ for mol in mols:
             z.append([l[2] for l in block])
             FES[mol][1].append(block[0][1])
         FES[mol][0] = [l[0] for l in split_data[0]]
-        FES[mol][2] = np.asarray(z)  
+        FES[mol][2] = np.asarray(z)
         with open('./monitor/vmax.dat','a+') as f:
             f.write('{} {} {}\r\n'.format(mol, folder, np.amax(FES[mol][2]) ))
 
         x,y = np.meshgrid(FES[mol][0],FES[mol][1])
-       
         old_method = False
         if old_method:
-            FES[mol][2] = FES[mol][2]-np.amax(FES[mol][2]) 
+            FES[mol][2] = FES[mol][2]-np.amax(FES[mol][2])
             conts = np.arange(-vmax,0.0,2.0)
-        else:   
+        else:
             #conts = np.append(np.arange(0.0,20.0,2.0), vmax)
             conts = np.arange(0.0,vmax,2.0)
             print(conts)
@@ -213,40 +237,42 @@ for mol in mols:
         plt.title('{m}  |  {}  |  FES  |  {}ns'.format(folder,t,m=mol))
         plt.xlabel(x_name+' / nm')
         plt.ylabel(y_name+' / nm')
-        plt.savefig('monitor/{m}_{f}/{m}-{f}_FES_{}.png'.format(t,f=folder,m=mol),bbox_inches='tight', dpi=300)
+        plt.savefig('monitor/{m}_{f}/{m}-{f}_FES_{}.png'\
+                .format(t,f=folder,m=mol),bbox_inches='tight', dpi=300)
 
-        COL = mols.copy()   
+        COL = mols.copy()
         filename = './monitor/{m}_{f}/{m}.colvar'.format(f=folder,m=mol)
         with open(filename) as f:
             lines = f.readlines()
             data = [l for l in lines if l[0] not in ("@", "#")]
-            data = [[float(val) for val in line.split()] for line in data] 
+            data = [[float(val) for val in line.split()] for line in data]
         COL[mol] = [[]]*len(data[0])
         for i in np.arange(len(data[0])):
-            COL[mol][i] = [l[i] for l in data]  
+            COL[mol][i] = [l[i] for l in data]
         plt.figure()
         plt.plot([x/1000 for x in COL[mol][0]],COL[mol][1], label=mol)
-        plt.axhline(0.0,color='k',linestyle='--') 
-        plt.axhline(4.5,color='k',linestyle='--') 
-        plt.legend() 
+        plt.axhline(0.0,color='k',linestyle='--')
+        plt.axhline(4.5,color='k',linestyle='--')
+        plt.legend()
         plt.xlabel('Simulation Time / ns')
         plt.ylabel(x_name+' / nm')
         plt.ylim(-0.2,5.0)
-        plt.title('{m}  |  {}  |  Projection on Z - pp.proj  |  {}ns'.format(folder,t,m=mol))
-        plt.savefig('monitor/{m}_{f}/{m}-{f}_proj_{}.png'.format(t,f=folder,m=mol),bbox_inches='tight', dpi=300)
-        
+        plt.title('{m}  |  {}  |  Projection on Z - pp.proj  |  {}ns'\
+                .format(folder,t,m=mol))
+        plt.savefig('monitor/{m}_{f}/{m}-{f}_proj_{}.png'\
+                .format(t,f=folder,m=mol),bbox_inches='tight', dpi=300)
         plt.figure()
-        plt.plot([x/1000 for x in COL[mol][0]],COL[mol][2], label=mol) 
-        plt.axhline(0.0,color='k',linestyle='--') 
-        plt.axhline(2.0,color='k',linestyle='--') 
-        plt.legend() 
+        plt.plot([x/1000 for x in COL[mol][0]],COL[mol][2], label=mol)
+        plt.axhline(0.0,color='k',linestyle='--')
+        plt.axhline(2.0,color='k',linestyle='--')
+        plt.legend()
         plt.xlabel('Simulation Time / ns')
         plt.ylabel(y_name+' / nm')
         plt.ylim(-0.1,2.1)
-        plt.title('{m}  |  {}  |  Distance from Z - pp.ext  |  {}ns'.format(folder,t,m=mol))
-        plt.savefig('monitor/{m}_{f}/{m}-{f}_ext_{}.png'.format(t,f=folder,m=mol),bbox_inches='tight', dpi=300)
-
-              
+        plt.title('{m}  |  {}  |  Distance from Z - pp.ext  |  {}ns'\
+                .format(folder,t,m=mol))
+        plt.savefig('monitor/{m}_{f}/{m}-{f}_ext_{}.png'\
+                .format(t,f=folder,m=mol),bbox_inches='tight', dpi=300)
         from matplotlib.ticker import NullFormatter
         plt.gcf().clear()
         newx = np.random.randn(1000)
@@ -262,7 +288,7 @@ for mol in mols:
         rect_scatter = [left, bottom, width, height]
         rect_histx = [left, bottom_h, width, 0.25]
         rect_histy = [left_h, bottom, 0.255, height]
- 
+
         fig = plt.figure(figsize=(12, 8))
 
         axContour = plt.axes(rect_scatter)
@@ -277,9 +303,9 @@ for mol in mols:
         c = axContour.contourf(x,y, FES[mol][2]/4.184 ,conts,cmap='CMRmap', )
         plt.colorbar(c, ax=axHisty,label='Free Energy Surface / kcal/mol')
         axContour.plot(f_x,f_y,'k')
-        
+
         fig.suptitle('{m}  |  {}  |  FES  |  {}ns'.format(folder,t,m=mol))
-        
+
 
         # now determine nice limits by hand:
         binwidth = 0.25
@@ -298,4 +324,5 @@ for mol in mols:
         axHistx.set_xlim(axContour.get_xlim())
         axHisty.set_ylim(axContour.get_ylim())
 
-        fig.savefig('monitor/{m}_{f}/{m}-TRIPLE.png'.format(t,f=folder,m=mol),bbox_inches='tight', dpi=450)
+        fig.savefig('monitor/{m}_{f}/{m}-TRIPLE.png'.format(t,f=folder,m=mol),
+                bbox_inches='tight', dpi=450)
