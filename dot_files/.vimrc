@@ -52,9 +52,9 @@ set colorcolumn=80      " add line to show 80 character 'limit'
 set autoindent          " always set autoindenting on
 set copyindent          " copy the previous indentation on autoindenting
 
-set number relativenumber
-set ruler
-set showcmd 
+set nu rnu              " adds 'hydrid' line numbering - relative AND regular
+set ruler               " adds percentage and coords to bottom right 
+set showcmd             " show (partial) command in the last line of the screen
 filetype indent on
 set wildmenu 
 set showmatch   
@@ -98,6 +98,7 @@ nnoremap <C-j> <C-w><C-j>
 nnoremap <C-k> <C-w><C-k>
 nnoremap <C-l> <C-w><C-l>
 
+" Open NERDTree with Ctrl+N
 map <C-n> :NERDTreeToggle<CR>
 
 " Use Q for formatting the current paragraph (or selection)
