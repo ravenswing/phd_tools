@@ -63,13 +63,17 @@ set backspace=eol,start,indent " allow backspacing over everything in insert mod
 
 set incsearch
 set hlsearch 
-set smartcase           " ignore case if search pattern is all lowercase, case-sensitive otherwise
+set ignorecase          " ignore case if search pattern is all lowercase
+set smartcase           " case-sensitive otherwise
 
 set history=1000        " remember more commands and search history
 set undolevels=1000     " use many muchos levels of undo
 set title               " change the terminal's title
 set visualbell          " don't beep
 set noerrorbells        " don't beep
+
+set undofile            " adds an undo file for unlimited undos
+set gdefault            " set find/replace to global PER LINE as default
 
 syntax enable 
 let python_highlight_all=1
@@ -101,7 +105,10 @@ vmap Q gq
 nmap Q gqap
 
 " Clear search highlighting with ,/
-nmap <silent> ,/ :nohlsearch<CR>
+nmap <silent> <leader>/ :nohlsearch<CR>
+
+" Save all files when tabbing away - save on losing focus
+au FocusLost * :wa
 
 " Set F2 to open paste mode
 nnoremap <F2> :set invpaste paste?<CR>
