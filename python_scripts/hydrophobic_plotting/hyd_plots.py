@@ -1,27 +1,29 @@
+"""
+                    PLOTTING FOR HYDROPHOBIC BRUSH
+"""
+
 import mdtraj as md
 import numpy as np
 import matplotlib
 import matplotlib.font_manager as font_manager
 import matplotlib.pyplot as plt
 import pandas as pd
-import copy as cp
-import pickle
-import os
-import glob
-import sys
-import seaborn as sns
+#import os
+#import glob
+#import sys
+#import seaborn as sns
 
  ###############################################################################
  #                                   INPUTS
  ###############################################################################
 
 # Source directory for the files on your local system
-srcdir = '/media/rhys/ExtHD/Project/carlos_peptides/LONG/hydrophilic_brush/helical_brush/'
+srcdir = '/media/rhys/ExtHD/Project/carlos_peptides/LONG/hydrophobic_brush/unbiased/'
 
-mol = 'EK5_helix'
-figure_path = '{}figures/{}/'.format(srcdir,mol)
-pep_length=10
-num_pep=9
+mol = 'brush_3HIS+GLYx3_4x4_0.0A'
+figure_path = '{}figures/{}/'.format(srcdir, mol)
+pep_length = 12
+num_pep = 16
 # default_x = np.linspace(0,2500000.0,num=25001)
 plt.style.use('seaborn-poster')
 
@@ -60,12 +62,12 @@ def plotHeatMap(systems, limit, distances, coordinates, marker_size, xlabel, yla
 #                               ROLAVGPLOT
 ###############################################################################
 
-def rolAvgPlot2 (data, window_size, no_of_std, ylims, ylabel, legend, figure_name, save):
+def rol_avgplot2(data, window_size, no_of_std, ylims, ylabel, figure_name, save):
     keys = list(data.keys())
     if num_pep == 9:
         g, axs = plt.subplots(3, 3, figsize=(30, 15))
         # reorder = [6,1,5,4,0,2,8,3,7]
-        reorder = [0,1,2,3,4,5,6,7,8]
+        reorder = [0, 1, 2, 3, 4, 5, 6, 7, 8]
     elif num_pep == 12:
         g, axs = plt.subplots(3, 4, figsize=(30, 15))
         reorder = [11, 7, 3, 4, 10, 1, 0, 2, 8, 5, 6, 9]
@@ -114,21 +116,23 @@ def processHelicity (srcdir, mol,frames):
     col = ['pep'+str(x+1) for x in range(num_pep)]
     df = pd.DataFrame(columns=col)
     print(df.head())
-    xtc = '{}{m}/06-MD/{m}_final.xtc'.format(srcdir, m=mol)
-    topol = '{}{m}/06-MD/{m}_protein.gro'.format(srcdir, m=mol)
+    xtc = '{}{m}/05-MD/MD_final.xtc'.format(srcdir, m=mol)
+    topol = '{}{m}/05-MD/{m}_protein.gro'.format(srcdir, m=mol)
 
     for chunk in md.iterload(xtc, 100, top=topol):
-        in_data = np.empty((100,9))
+        in_data = np.empty((100, num_pep))
         for i in range(num_pep):
             peptide_chunk = chunk.atom_slice(chunk.top.select("resid {} to {}".format(i*pep_length, (i+1)*pep_length-1)))
-            dssp = md.compute_dssp(peptide_chunk, simplified=True)
-            helicity = (dssp =='H') | (dssp == 'G') | (dssp == 'I')
-            in_data[:,i] = np.sum(helicity, axis=1)/1.0
+            dssp = md.compute_dssp(peptide_chunk, simplified=False)
+            #helicity = (dssp == 'H') | (dssp == 'G') | (dssp == 'I')
+            helicity = (dssp == 'E') | (dssp == 'B') 
+            in_data[:, i] = np.sum(helicity, axis=1)/1.0
         df = df.append(pd.DataFrame(in_data, columns=col), ignore_index=True)
     df['tot_hel'] = df.sum(axis=1)
     print(df.head())
     print(df.shape)
-    df.iloc[:frames,:].to_csv(mol+'_hel_data.csv')
+    #df.iloc[:frames, :].to_csv(mol+'_hel_data.csv')
+    df.iloc[:frames, :].to_csv(mol+'_strand_data.csv')
 
 
 def processHBonds(mol,limit):
@@ -155,92 +159,70 @@ def processHBonds(mol,limit):
 ###############################################################################
 #                               PLOTTING & RUNNING
 ###############################################################################
-processing = [False,False]
-if processing[0]: processHelicity(srcdir,mol,50000)
-elif processing[1]: processHBonds(mol,0.28)
+def run(processing):
+    """ run the analysis and/or plot """
+    if processing[0]:
+        processHelicity(srcdir, mol, 50000)
+    elif processing[1]:
+        processHBonds(mol, 0.28)
 
-else:
-    helicity_data = pd.read_csv(mol+'_hel_data.csv', usecols=['tot_hel'])
-    helicity_data['tot_hel'] = (helicity_data['tot_hel'] / helicity_data['tot_hel'].max())*100
-    hbond_data = pd.read_csv(mol+'_hyb_data.csv', usecols=['tot_hyb'])
-    #print(hbond_data.head())
-    data = helicity_data.merge(hbond_data,left_index=True,right_index=True)
-    #print(data.shape) 
+    else:
+        helicity_data = pd.read_csv(mol+'_hel_data.csv', usecols=['tot_hel'])
+        helicity_data['tot_hel'] = (helicity_data['tot_hel'] / helicity_data['tot_hel'].max())*100
+        hbond_data = pd.read_csv(mol+'_hyb_data.csv', usecols=['tot_hyb'])
+        #print(hbond_data.head())
+        data = helicity_data.merge(hbond_data, left_index=True, right_index=True)
+        #print(data.shape)
 
-    fontpath = '/home/rhys/.fonts/iosevka/iosevka-term-regular.ttf'
-    prop = font_manager.FontProperties(fname=fontpath)
-    matplotlib.rcParams['font.family'] = prop.get_name()
-    hyb_col = '#ffc000'
-    hel_col = '#002C56'
-    hel_col2 = '#66809A'
+        fontpath = '/home/rhys/.fonts/iosevka/iosevka-term-regular.ttf'
+        prop = font_manager.FontProperties(fname=fontpath)
+        matplotlib.rcParams['font.family'] = prop.get_name()
+        hyb_col = '#ffc000'
+        hel_col = '#002C56'
 
-    window_size = 500
-    font_sizes=[40,36]
-    x = np.arange(50000)
-    for d in ['hel','hyb']:
-        data[d+'_rm'] = data['tot_'+d].rolling(window_size, center=True).mean()
-        data[d+'_std'] = data['tot_'+d].rolling(window_size, center=True).std()
-        data[d+'_min'] = data[d+'_rm'] + data[d+'_std']
-        data[d+'_max'] = data[d+'_rm'] - data[d+'_std']
-    data.to_csv(mol+'_data_out.csv')
-    fig, ax1 = plt.subplots(figsize=(20,16))
+        window_size = 500
+        font_sizes = [40, 36]
+        x = np.arange(50000)
+        for d in ['hel', 'hyb']:
+            data[d+'_rm'] = data['tot_'+d].rolling(window_size, center=True).mean()
+            data[d+'_std'] = data['tot_'+d].rolling(window_size, center=True).std()
+            data[d+'_min'] = data[d+'_rm'] + data[d+'_std']
+            data[d+'_max'] = data[d+'_rm'] - data[d+'_std']
+        data.to_csv(mol+'_data_out.csv')
+        fig, ax1 = plt.subplots(figsize=(20, 16))
 
-    ax1.plot(data['hel_rm'], color=hel_col, linewidth=4.0, zorder=21)
-    ax1.fill_between(x,data['hel_min'], data['hel_max'], alpha=.3, facecolor=hel_col, zorder=20)
-    ax1.set_ylabel('Percentage Helicity',fontweight='medium', fontsize=font_sizes[0] )
-    ax1.set_ylim(-2.0, 100.0)
-    ax1.set_xlabel('Time (ns)',fontweight='medium', fontsize=font_sizes[0])
-    ax1.set_xlim(0.0, 50000.0)
-    plt.yticks(fontweight='medium', fontsize=font_sizes[1])
-    ax2 = ax1.twinx()
+        ax1.plot(data['hel_rm'], color=hel_col, linewidth=4.0, zorder=21)
+        ax1.fill_between(x, data['hel_min'], data['hel_max'],
+                         alpha=.3, facecolor=hel_col, zorder=20)
+        ax1.set_ylabel('Percentage Helicity', fontweight='medium',
+                       fontsize=font_sizes[0])
+        ax1.set_ylim(-2.0, 100.0)
+        ax1.set_xlabel('Time (ns)', fontweight='medium', fontsize=font_sizes[0])
+        ax1.set_xlim(0.0, 50000.0)
+        plt.yticks(fontweight='medium', fontsize=font_sizes[1])
+        ax2 = ax1.twinx()
 
-    ax2.plot(data['hyb_rm'], color=hyb_col, linewidth=4.0)
-    ax2.fill_between(x,data['hyb_min'], data['hyb_max'], alpha=.3, facecolor=hyb_col)
-    ax2.set_ylabel('No. Hydrogen Bonds',fontweight='medium', fontsize=font_sizes[0])
-    ax2.set_ylim(-0.1, 5.0)
-    plt.yticks(fontweight='medium', fontsize=font_sizes[1])
+        ax2.plot(data['hyb_rm'], color=hyb_col, linewidth=4.0)
+        ax2.fill_between(x, data['hyb_min'], data['hyb_max'], alpha=.3,
+                         facecolor=hyb_col)
+        ax2.set_ylabel('No. Hydrogen Bonds', fontweight='medium',
+                       fontsize=font_sizes[0])
+        ax2.set_ylim(-0.1, 5.0)
+        plt.yticks(fontweight='medium', fontsize=font_sizes[1])
 
 
-    ns = np.linspace(0,1000,11, dtype='int')
-    ts = np.linspace(0, 50000, 11)
-    ax1.set_xticks(ticks=ts )
-    ax1.set_xticklabels(labels=ns,fontweight='medium', fontsize=font_sizes[1])
-#    ax1.set_title('$(E_4K_4)_2$ Helical Content and Hydrogen Bond Formation', fontweight='medium',fontsize=font_sizes[0], pad=20)
-    ax1.set_title('$(EK)_5$ Helical Content and Hydrogen Bond Formation', fontweight='medium',fontsize=font_sizes[0], pad=20)
-    #ax1.set_title('AEAK... Helical Content and Hydrogen Bond Formation', fontweight='medium',fontsize=font_sizes[0], pad=20)
+        ns = np.linspace(0, 1000, 11, dtype='int')
+        ts = np.linspace(0, 50000, 11)
+        ax1.set_xticks(ticks=ts)
+        ax1.set_xticklabels(labels=ns, fontweight='medium', fontsize=font_sizes[1])
+    #    ax1.set_title('$(E_4K_4)_2$ Helical Content and Hydrogen Bond Formation', fontweight='medium',fontsize=font_sizes[0], pad=20)
+        ax1.set_title('$(EK)_5$ Helical Content and Hydrogen Bond Formation', fontweight='medium',fontsize=font_sizes[0], pad=20)
+        #ax1.set_title('AEAK... Helical Content and Hydrogen Bond Formation', fontweight='medium',fontsize=font_sizes[0], pad=20)
 
-    fig.savefig(figure_path+mol+'_double_plot.png', bbox_inches='tight', transparent=True, dpi=300)
+        fig.savefig(figure_path+mol+'_double_plot.png', bbox_inches='tight', transparent=True, dpi=300)
 
-'''
-#############################################################
- 29 helicity = dssp.copy()
- 28 #helicity_per_res = dssp.copy()
- 27 
- 26 for mol in helicity:
- 25     for p in helicity[mol]:
- 24         helicity[mol][p] = (dssp[mol][p] =='H')
- 23     #helicity_per_res[mol] = np.sum(helicity[mol], axis=0)[:traj.top.n_residues]/float(traj.n_frames)
- 22         helicity[mol][p] = np.sum(helicity[mol][p], axis=1)/1.0
- 21 
- 20 #rolAvgPlot2(helicity, 200, 1.0, [0,15],"DSSP Score", ["XYZ","Z"], "{}_DSSP".format(mol), True)
- 19 #rolAvgPlot2(data, window_size, no_std, ylims, ylabel, figure_title, saveFig)
- 18 
+def plot_brush_csv(
 
- 16 
- 15 
- 14 #plt.plot(EK5_hyb)
- 13 #plt.savefig(figure_path+'test2.png')
- 12 #############################################################################
+PROCESSING = [True, False]
 
- 10 system = 'EK5_helix'
-  9 
-  8 EK5_DSSP_overT = []
-  7 
-  6 for i in range(len(helicity[system])):
-  5     EK5_DSSP_overT.append(helicity[system][i])
-  4     
-  3 EK5_DSSP_overT = np.array(EK5_DSSP_overT)
-  2 
-  1 EK5_DSSP = np.sum(EK5_DSSP_overT, 0)
-251 '''
-
+run(PROCESSING)
