@@ -20,12 +20,13 @@ import pandas as pd
 # Source directory for the files on your local system
 srcdir = '/media/rhys/ExtHD/Project/carlos_peptides/LONG/hydrophobic_brush/unbiased/'
 
-mol = 'brush_3HIS+GLYx3_4x4_0.0A'
+#mol = 'brush_3HIS+GLYx3_4x4_0.0A'
+mol = 'brush_3HIS+GLYx3_Ncapped_4x4_0.0A'
 figure_path = '{}figures/{}/'.format(srcdir, mol)
 pep_length = 12
 num_pep = 16
 # default_x = np.linspace(0,2500000.0,num=25001)
-plt.style.use('seaborn-poster')
+plt.style.use('dark_background')
 
 ###############################################################################
 #                               HEATMAP PLOT FUNC
@@ -125,7 +126,7 @@ def processHelicity (srcdir, mol,frames):
             peptide_chunk = chunk.atom_slice(chunk.top.select("resid {} to {}".format(i*pep_length, (i+1)*pep_length-1)))
             dssp = md.compute_dssp(peptide_chunk, simplified=False)
             #helicity = (dssp == 'H') | (dssp == 'G') | (dssp == 'I')
-            helicity = (dssp == 'E') | (dssp == 'B') 
+            helicity = (dssp == 'E') | (dssp == 'B')
             in_data[:, i] = np.sum(helicity, axis=1)/1.0
         df = df.append(pd.DataFrame(in_data, columns=col), ignore_index=True)
     df['tot_hel'] = df.sum(axis=1)
@@ -221,8 +222,51 @@ def run(processing):
 
         fig.savefig(figure_path+mol+'_double_plot.png', bbox_inches='tight', transparent=True, dpi=300)
 
-def plot_brush_csv(
+def plot_brush_csv(csv, ylims, ylabel):
+    data = pd.read_csv(csv)
 
-PROCESSING = [True, False]
+    g, axs = plt.subplots(4, 4, figsize=(30, 25))
+    axs = axs.ravel()
+    x = np.linspace(0,1000000.0,num=10001)
+    colours = ['xkcd:red','xkcd:orange','xkcd:vibrant purple','xkcd:maroon',
+            'xkcd:cerulean','xkcd:deep magenta','xkcd:teal','xkcd:green',
+             'xkcd:purple','xkcd:grapefruit','xkcd:forest green','xkcd:indigo',
+             'xkcd:purple','xkcd:grapefruit','xkcd:forest green','xkcd:indigo']
+    shade = 0.4
+    c = 0
+    window_size = 200
+    x = np.arange(50000)
+    for i in range(16):
+        pep = 'pep'+str(i+1)
+        datum = pd.DataFrame(data[pep], columns=[pep])
+        print(datum.head())
+        datum[pep+'_rm'] = datum[pep].rolling(window_size, center=True).mean()
+        datum[pep+'_std'] = datum[pep].rolling(window_size, center=True).std()
+        datum[pep+'_min'] = datum[pep+'_rm'] + datum[pep+'_std']
+        datum[pep+'_max'] = datum[pep+'_rm'] - datum[pep+'_std']
 
-run(PROCESSING)
+        axs[i].plot(datum[pep+'_rm'], linewidth=2.0, color='{}'.format(colours[c]), zorder=20)
+        axs[i].fill_between(x, datum[pep+'_min'], datum[pep+'_max'], alpha=(shade/3), facecolor='{}'.format(colours[c]))
+
+        axs[i].set_title("Peptide " + str(i+1), fontsize=22)
+        axs[i].set_xlabel("Simulation Time (ns)", fontsize=16)
+        axs[i].set_ylabel(ylabel, fontsize=16)
+        axs[i].set_ylim(ylims) 
+        axs[i].set_xlim(0.0, 50000.0)
+        ns = np.linspace(0, 1000, 11, dtype='int')
+        ts = np.linspace(0, 50000, 11)
+        axs[i].set_xticks(ticks=ts)
+        axs[i].set_xticklabels(labels=ns, fontsize=12)
+        # axs[p].legend(legend, loc=1)
+        c += 1
+    plt.subplots_adjust(hspace=0.4)
+    g.savefig(figure_path + csv + ".png", bbox_inches='tight', transparent=True, dpi=300)
+
+
+
+PROCESSING = [False, False]
+#run(PROCESSING)
+
+plot_brush_csv(mol+'_strand_data.csv', [-0.2, 5.0], 'DSSP Strand Score')
+plot_brush_csv(mol+'_hel_data.csv', [-0.2, 7.0], 'DSSP Helicity Score')
+#plot_brush_csv('brush_3HIS+GLYx3_4x4_0.0A_hel_data.csv', [-0.2, 7.0], 'DSSP Helicity Score')
