@@ -21,43 +21,11 @@ import pandas as pd
 srcdir = '/media/rhys/ExtHD/Project/carlos_peptides/LONG/hydrophobic_brush/unbiased/'
 
 #mol = 'brush_3HIS+GLYx3_4x4_0.0A'
-mol = 'brush_3HIS+GLYx3_Ncapped_4x4_0.0A'
-figure_path = '{}figures/{}/'.format(srcdir, mol)
-pep_length = 12
+#mol = 'brush_3HIS+GLYx3_Ncapped_4x4_0.0A'
+figure_path = '{}figures/'.format(srcdir)
 num_pep = 16
 # default_x = np.linspace(0,2500000.0,num=25001)
 plt.style.use('dark_background')
-
-###############################################################################
-#                               HEATMAP PLOT FUNC
-###############################################################################
-
-def plotHeatMap(systems, limit, distances, coordinates, marker_size, xlabel, ylabel, colourlabel, saveFig, save_folder):
-    iad = systems
-    cm = plt.cm.get_cmap('plasma')
-    m, axis = plt.subplots(2, 2, figsize=(17,14))
-    axis = axis.ravel()
-    # limit = limit
-    # Average hydrogen bond: 1.5-2.5 Angs, not including X-H covalent bond
-    # Average electrostatic interaction: < 4 Angs
-    # For each system...
-    for p in range(len(iad)):
-        mol = iad[p]
-        # Translate distances into mean contact frequency, with contact defined as when distance < limit
-        binary_contacts = distances[mol] < limit
-        mean_contacts = np.mean(binary_contacts, 0)
-         # Derive coordinates arrays from atom:atom pairs
-        x, y = np.transpose(coordinates[mol])[0], np.transpose(coordinates[mol])[1]
-        # Plot graph of atom vs. atom, colour coded for (contact frequency)^2
-        hm = axis[p].scatter(y, x, c=mean_contacts**2, cmap=cm, vmin=0, vmax=1, marker='s', s=marker_size)
-        axis[p].set_title(mol,fontsize=18)
-        axis[p].set_xlabel(xlabel,fontsize=14)
-        axis[p].set_ylabel(ylabel,fontsize=14)
-    cbar = m.colorbar(hm, ax=axis)
-    cbar.set_label(colourlabel, fontsize = 14)
-    plt.show()
-    if saveFig:
-        m.savefig(figure_path + mol + '/{sf}_heatmap.png'.format(sf=save_folder))
 
 ###############################################################################
 #                               ROLAVGPLOT
@@ -108,11 +76,12 @@ def rol_avgplot2(data, window_size, no_of_std, ylims, ylabel, figure_name, save)
     plt.subplots_adjust(hspace=0.4)
     if save == True:
         g.savefig(figure_path + mol + '/' + figure_name + ".png")
-# ##############################################################################
- #                               PROCESSING HELICITY
+
+##############################################################################
+#                               PROCESSING HELICITY
 ##############################################################################
 
-def processHelicity (srcdir, mol,frames):
+def processHelicity (srcdir, mol, frames):
     print("Processing Helicity")
     col = ['pep'+str(x+1) for x in range(num_pep)]
     df = pd.DataFrame(columns=col)
@@ -125,15 +94,15 @@ def processHelicity (srcdir, mol,frames):
         for i in range(num_pep):
             peptide_chunk = chunk.atom_slice(chunk.top.select("resid {} to {}".format(i*pep_length, (i+1)*pep_length-1)))
             dssp = md.compute_dssp(peptide_chunk, simplified=False)
-            #helicity = (dssp == 'H') | (dssp == 'G') | (dssp == 'I')
-            helicity = (dssp == 'E') | (dssp == 'B')
+            helicity = (dssp == 'H') | (dssp == 'G') | (dssp == 'I')
+           # helicity = (dssp == 'E') | (dssp == 'B')
             in_data[:, i] = np.sum(helicity, axis=1)/1.0
         df = df.append(pd.DataFrame(in_data, columns=col), ignore_index=True)
     df['tot_hel'] = df.sum(axis=1)
     print(df.head())
     print(df.shape)
-    #df.iloc[:frames, :].to_csv(mol+'_hel_data.csv')
-    df.iloc[:frames, :].to_csv(mol+'_strand_data.csv')
+    df.iloc[:frames, :].to_csv(mol+'_hel_data.csv')
+    #df.iloc[:frames, :].to_csv(mol+'_strand_data.csv')
 
 
 def processHBonds(mol,limit):
@@ -157,10 +126,39 @@ def processHBonds(mol,limit):
         else:
             df.to_csv(mol+'_hyb_data.csv', mode='a',header=None, index=False)
 
+def processMetric(srcdir, mol, frames, metric):
+    print("Processing "+metric)
+    col = ['pep'+str(x+1) for x in range(num_pep)]
+    df = pd.DataFrame(columns=col)
+    print(df.head())
+    xtc = '{}{m}/05-MD/MD_final.xtc'.format(srcdir, m=mol)
+    topol = '{}{m}/05-MD/{m}_protein.gro'.format(srcdir, m=mol)
+
+    for chunk in md.iterload(xtc, 100, top=topol):
+        in_data = np.empty((100, num_pep))
+        for i in range(num_pep):
+            peptide_chunk = chunk.atom_slice(chunk.top.select("resid {} to {}".format(i*pep_length, (i+1)*pep_length-1)))
+            #dssp = md.compute_dssp(peptide_chunk, simplified=False)
+            if metric == "RGYR":
+                in_data[:, i] = md.compute_rg(peptide_chunk)
+            elif metric == "RMSD":
+                in_data[:, i] = md.rmsd(peptide_chunk, peptide_chunk[0])
+            elif metric == "E2E":
+                calphas = peptide_chunk.top.select_atom_indices(selection="alpha")
+                pair = (calphas[0], calphas[-1])
+                mpair = np.matrix(pair)
+                in_data[:, i] = np.concatenate(md.compute_distances(peptide_chunk, mpair))
+
+        df = df.append(pd.DataFrame(in_data, columns=col), ignore_index=True)
+    df['tot_hel'] = df.mean(axis=1)
+    print(df.head())
+    print(df.shape)
+    df.iloc[:frames, :].to_csv(mol+'_'+metric+'_data.csv')
+
 ###############################################################################
 #                               PLOTTING & RUNNING
 ###############################################################################
-def run(processing):
+def run(processing, mol):
     """ run the analysis and/or plot """
     if processing[0]:
         processHelicity(srcdir, mol, 50000)
@@ -231,7 +229,7 @@ def plot_brush_csv(csv, ylims, ylabel):
     colours = ['xkcd:red','xkcd:orange','xkcd:vibrant purple','xkcd:maroon',
             'xkcd:cerulean','xkcd:deep magenta','xkcd:teal','xkcd:green',
              'xkcd:purple','xkcd:grapefruit','xkcd:forest green','xkcd:indigo',
-             'xkcd:purple','xkcd:grapefruit','xkcd:forest green','xkcd:indigo']
+             'xkcd:navy','xkcd:gray','xkcd:yellow','xkcd:pink']
     shade = 0.4
     c = 0
     window_size = 200
@@ -239,6 +237,9 @@ def plot_brush_csv(csv, ylims, ylabel):
     for i in range(16):
         pep = 'pep'+str(i+1)
         datum = pd.DataFrame(data[pep], columns=[pep])
+        if "hel" or "strand" in csv:
+            print('USING HELICITY ADJUSTMENT')
+            datum[pep] = (datum[pep]/(pep_length-2))*100
         print(datum.head())
         datum[pep+'_rm'] = datum[pep].rolling(window_size, center=True).mean()
         datum[pep+'_std'] = datum[pep].rolling(window_size, center=True).std()
@@ -251,7 +252,10 @@ def plot_brush_csv(csv, ylims, ylabel):
         axs[i].set_title("Peptide " + str(i+1), fontsize=22)
         axs[i].set_xlabel("Simulation Time (ns)", fontsize=16)
         axs[i].set_ylabel(ylabel, fontsize=16)
-        axs[i].set_ylim(ylims) 
+        if "hel" or "strand" in csv:
+            axs[i].set_ylim(0.0, 100.0)
+        else:
+            axs[i].set_ylim(ylims)
         axs[i].set_xlim(0.0, 50000.0)
         ns = np.linspace(0, 1000, 11, dtype='int')
         ts = np.linspace(0, 50000, 11)
@@ -262,11 +266,85 @@ def plot_brush_csv(csv, ylims, ylabel):
     plt.subplots_adjust(hspace=0.4)
     g.savefig(figure_path + csv + ".png", bbox_inches='tight', transparent=True, dpi=300)
 
+def plot_indcomb(name, pep_length, ylims, ylabels, window_size):
+    """ plot the other things """
 
+    col = {'capd':"#d08770", 'uncapd': "#b48ead"}
+    font_sizes = [32, 24]
+    x = np.arange(100000)
+
+    uncapped_name = name[0]+name[1]
+    capped_name = name[0]+"Ncapped_"+name[1]
+
+    capped_data = pd.read_csv(capped_name, usecols=['tot_hel'])
+    uncapped_data = pd.read_csv(uncapped_name, usecols=['tot_hel'])
+    if "hel" or "strand" in name[1]:
+        capped_data['tot_hel'] = (capped_data['tot_hel'] / (num_pep*((pep_length+1)-2)))*100
+        uncapped_data['tot_hel'] = (uncapped_data['tot_hel'] / (num_pep*(pep_length-2)))*100
+    capped_data.rename(columns={'tot_hel': 'capd'}, inplace=True)
+    uncapped_data.rename(columns={'tot_hel': 'uncapd'}, inplace=True)
+
+    data = capped_data.merge(uncapped_data, left_index=True, right_index=True)
+
+    for d in ['capd', 'uncapd']:
+        data[d+'_rm'] = data[d].rolling(window_size, center=True).mean()
+        data[d+'_std'] = data[d].rolling(window_size, center=True).std()
+        data[d+'_min'] = data[d+'_rm'] + data[d+'_std']
+        data[d+'_max'] = data[d+'_rm'] - data[d+'_std']
+
+        fig, ax1 = plt.subplots(figsize=(20, 8))
+        ax1.plot(data[d+'_rm'], color=col[d], linewidth=4.0, zorder=21)
+        ax1.plot(data[d], color=col[d], alpha=.5, linewidth=2.0, zorder=21)
+        #ax1.fill_between(x, data[d+'_min'], data[d+'_max'],
+                         #alpha=.3, facecolor=col[d], zorder=20)
+        ax1.set_ylabel(ylabels, fontweight='medium',
+                       fontsize=font_sizes[0])
+        ax1.set_ylim(ylims)
+        ax1.set_xlabel('Time (ns)', fontweight='medium', fontsize=font_sizes[0])
+        ax1.set_xlim(0.0, 50000.0)
+        ns = np.linspace(0, 1000, 11, dtype='int')
+        ts = np.linspace(0, 50000, 11)
+        ax1.set_xticks(ticks=ts)
+        ax1.set_xticklabels(labels=ns, fontweight='medium', fontsize=font_sizes[1])
+        ax1.legend(['Rolling Mean', 'Raw Data'], fontsize=font_sizes[1])
+        plt.yticks(fontweight='medium', fontsize=font_sizes[1])
+        fig.savefig(figure_path+uncapped_name+"_"+d+".png", bbox_inches='tight', transparent=True, dpi=300)
+
+
+    fig2, ax2 = plt.subplots(figsize=(20, 16))
+    for d in ['capd', 'uncapd']:
+        ax2.plot(data[d+'_rm'], color=col[d], linewidth=4.0, zorder=21)
+        ax2.fill_between(x, data[d+'_min'], data[d+'_max'],
+                        alpha=.3, facecolor=col[d], zorder=20)
+    ax2.set_ylabel(ylabels, fontweight='medium',
+                    fontsize=font_sizes[0])
+    ax2.set_ylim(ylims)
+    ax2.set_xlabel('Time (ns)', fontweight='medium', fontsize=font_sizes[0])
+    ax2.set_xlim(0.0, 50000.0)
+    ns = np.linspace(0, 1000, 11, dtype='int')
+    ts = np.linspace(0, 50000, 11)
+    ax2.set_xticks(ticks=ts)
+    ax2.set_xticklabels(labels=ns, fontweight='medium', fontsize=font_sizes[1])
+    ax2.legend(['N Terminal Capped', 'Uncapped'], fontsize=font_sizes[1])
+    plt.yticks(fontweight='medium', fontsize=font_sizes[1])
+    fig2.savefig(figure_path+uncapped_name+"_COMBIND.png", bbox_inches='tight', transparent=True, dpi=300)
 
 PROCESSING = [False, False]
-#run(PROCESSING)
+#run(PROCESSING, mol)
 
-plot_brush_csv(mol+'_strand_data.csv', [-0.2, 5.0], 'DSSP Strand Score')
-plot_brush_csv(mol+'_hel_data.csv', [-0.2, 7.0], 'DSSP Helicity Score')
-#plot_brush_csv('brush_3HIS+GLYx3_4x4_0.0A_hel_data.csv', [-0.2, 7.0], 'DSSP Helicity Score')
+#for mol in ['brush_3HIS+GLYx3_4x4_0.0A', 'brush_3HIS+GLYx3_Ncapped_4x4_0.0A']:
+    #pep_length = 13 if "Ncapped" in mol else 12
+    #print("Using PEP_LENGTH:  "+str(pep_length))
+    #processHelicity(srcdir, mol, 100000)
+    #processMetric(srcdir, mol, 100000, "E2E")
+    #processMetric(srcdir, mol, 100000, "RGYR")
+    #processMetric(srcdir, mol, 100000, "RMSD")
+
+#plot_brush_csv(mol+'_strand_data.csv', [-0.2, 5.0], '% Stranda (DSSP)')
+#plot_brush_csv(mol+'_hel_data.csv', [-0.2, 7.0], '% Helicity (DSSP)')
+
+plot_indcomb(["brush_3HIS+GLYx3_", "4x4_0.0A_hel_data.csv"], 12, [-2.0, 100.0], '% Helicity (DSSP)', 1000)
+plot_indcomb(["brush_3HIS+GLYx3_", "4x4_0.0A_strand_data.csv"], 12, [-2.0, 100.0], '% Strand (DSSP)', 1000)
+plot_indcomb(["brush_3HIS+GLYx3_", "4x4_0.0A_RMSD_data.csv"], 12, [0.0, 0.5], 'RMSD from linear / nm', 1000)
+plot_indcomb(["brush_3HIS+GLYx3_", "4x4_0.0A_RGYR_data.csv"], 12, [0.0, 1.0], '$R_{gyr}$ / nm', 1000)
+plot_indcomb(["brush_3HIS+GLYx3_", "4x4_0.0A_E2E_data.csv"], 12, [0.0, 5.0], 'End-to-end Distance / nm', 1000)
