@@ -69,11 +69,11 @@ if DOWNLOAD:
     for mol in mols:
     ## make new directory and download COLVAR & HILLS files
         try:
-            subprocess.call("mkdir ./monitor/{}_{}/".format(mol,folder),
+            subprocess.call("mkdir ./monitor/{}_{}/".format(mol, folder),
                             shell=True)
-            subprocess.call("scp {}:{}{f}/{m}/{f}/COLVAR "+
-                            "monitor/{m}_{f}/{m}.colvar"\
-                            .format(remote_svr,remote_pth,f=folder,m=mol),
+            subprocess.call("scp {}:{}{f}/{m}/{f}/COLVAR \
+                            monitor/{m}_{f}/{m}.colvar"\
+                            .format(remote_svr, remote_pth, f=folder, m=mol),
                             shell=True)
             print("scp {}:{}{f}/{m}/{f}/COLVAR monitor/{m}_{f}/{m}.colvar"\
                     .format(remote_svr,remote_pth,f=folder,m=mol))
@@ -82,8 +82,8 @@ if DOWNLOAD:
                             .format(remote_svr,remote_pth,f=folder,m=mol),
                             shell=True)
         except:
-            print('ERROR: Unable to sync COLVAR/HILLS files "+
-                    "from remote server.')
+            print('ERROR: Unable to sync COLVAR/HILLS files \
+                  from remote server.')
 if SUMHILLS:
     for mol in mols:
     ## run SUM_HILLS to generate free energy surface
