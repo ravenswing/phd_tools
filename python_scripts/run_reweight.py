@@ -11,6 +11,8 @@ import pandas as pd
 import pymol
 import pymol.cmd as cmd
 
+# local scripts
+import graphics as gr
 
 ########################################################
 #                   PARSING INPUTS
@@ -115,7 +117,20 @@ def run_sumhills():
                         shell=True)
         os.system('bash sumhills.sh')
     except:
-        print('ERROR: Unable to run SUM_HILLS')
+        print('ERROR: Unable to run SUM_HILLS 1')
+    ## run SUM_HILLS to generate free energy surface x35 10ns intervals
+    try:
+        subprocess.call("echo \'#!/bin/bash/\' > ./sumhills.sh",
+                        shell=True)
+        subprocess.call('echo \"plumed sum_hills \
+                        --hills monitor/{m}_{f}/{m}.hills \
+                        --outfile monitor/{m}_{f}/{m}.fes \
+                        --mintozero -dt 10\" >> ./sumhills.sh'\
+                        .format(f=FS, m=PDB),
+                        shell=True)
+        os.system('bash sumhills.sh')
+    except:
+        print('ERROR: Unable to run SUM_HILLS 2')
 
 ########################################################
 #                  GENERATE OUT PDB
@@ -418,8 +433,13 @@ def cutdown_traj():
 
 if __name__ == '__main__':
     if ARGS.download:
-        download_from_server("mn", "/home/cnio96/cnio96742/scratch/UCB_metaD/" )
+        download_from_server("mn", "/home/cnio96/cnio96742/scratch/UCB_metaD/")
     run_sumhills()
+
+    gr.hills_plot(PDB, FS)
+    gr.diffusion_plots(PDB, FS, 2)
+    gr.two_cv_contour(PDB, FS, 30)
+
     generate_outpdb()
     align_pdbs()
     edit_pdb()
