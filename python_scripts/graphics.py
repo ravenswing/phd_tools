@@ -111,7 +111,7 @@ def two_cv_contour(pdb, funnel_side, vmax):
     f_y = h*(1./(1.+np.exp(b*(f_x-sc))))+f
 
     plt.figure()
-    plt.contourf(x, y, fes[2]/4.184, conts, cmap='CMRmap', )
+    plt.contourf(x, y, fes[2]/4.184, conts, cmap='RdYlBu', )
     plt.colorbar(label='Free Energy Surface / kcal/pdb')
     plt.plot(f_x, f_y, 'k')
     plt.xlim(-0.2, 5.0)

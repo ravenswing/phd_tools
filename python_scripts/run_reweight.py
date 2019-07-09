@@ -177,9 +177,14 @@ def generate_outpdb():
     df['min_dist'] = md
     # filter the data to within basic thresholds on proj, ext and min. distance
     df = df[(df.proj > 3.1) & (df.proj < 4.0) \
-                & (df.ext < 0.5) & (df.min_dist > 1.2)] if not ARGS.nocut \
-            else df[(df.proj > 3.1) & (df.proj < 4.0) \
-            | (df.ext < 0.5) | (df.min_dist > 1.2)]
+            & (df.ext < 0.5)
+            & (df.min_dist > 1.2)
+           ]\
+            if not ARGS.nocut else \
+         df[(df.proj > 3.1) & (df.proj < 4.0) \
+            | (df.ext < 0.5) \
+            | (df.min_dist > 1.2)
+           ]
     # find the maximum min. distance value
     max_min = df['min_dist'].max()
     # calculate the score for determining "best" OUT frame
@@ -377,6 +382,7 @@ def combine_colvars():
     comb_col.to_csv(comb_col_path, sep=" ", header=False, index=False, mode='a')
 
     # cutdown and save GISMO COLVAR file from reweighted COLVAR (3501 lines)
+# NEED TO ADD THE ADDITIONAL LINE HERE, making 3503 lines!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     comb_col = comb_col.iloc[::10, :]
     gismo_col_path = "{}/{}.RW.GIScolvar".format(wd, stem)
     with open(gismo_col_path, 'w') as f:
