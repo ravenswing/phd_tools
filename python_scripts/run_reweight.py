@@ -12,7 +12,7 @@ import pymol
 import pymol.cmd as cmd
 
 # local scripts
-import graphics as gr
+#import graphics as gr
 
 ########################################################
 #                   PARSING INPUTS
@@ -63,9 +63,10 @@ WEIGHTS = ARGS.weights
 # define file names and directory names
 wd = "{}_FS{}".format(PDB, FS)
 stem = "{}-FS{}".format(PDB, FS)
-colvar = "{}/{}.COLVAR.old".format(wd, stem)
-xtc = "{}/{}_rw_fin.xtc".format(wd, stem)
-tpr = "{}/{}_ext.tpr".format(wd, PDB)
+colvar = "{}/{}_OLD.colvar".format(wd, stem)
+xtc = "{}/{}_dry_center.xtc".format(wd, stem)
+tpr = "{}/mdrun.tpr".format(wd)
+ndx = "{}/index_{}.ndx".format(wd,PDB)
 out_name = "{}/{}_OUT.pdb".format(wd, stem)
 
 SERVERS = {'archer':   'rhys@login.archer.ac.uk',
@@ -86,13 +87,13 @@ def download_from_server(server, remote_pth):
         subprocess.call("mkdir ./monitor/{}_{}/".format(PDB, FS),
                         shell=True)
         subprocess.call("scp {}:{}{f}/{m}/{f}/COLVAR \
-                        monitor/{m}_{f}/{m}.colvar"\
+                        monitor/{m}_{f}/{m}-{f}_OLD.colvar"\
                         .format(remote_svr, remote_pth, f=FS, m=PDB),
                         shell=True)
         print("scp {}:{}{f}/{m}/{f}/COLVAR monitor/{m}_{f}/{m}.colvar"\
                 .format(remote_svr, remote_pth, f=FS, m=PDB))
         subprocess.call("scp {}:{}{f}/{m}/{f}/HILLS \
-                        monitor/{m}_{f}/{m}.hills"\
+                        monitor/{m}_{f}/{m}-{f}.hills"\
                         .format(remote_svr, remote_pth, f=FS, m=PDB),
                         shell=True)
     except:
@@ -109,42 +110,47 @@ def run_sumhills():
     try:
         subprocess.call("echo \'#!/bin/bash/\' > ./sumhills.sh",
                         shell=True)
-        subprocess.call('echo \"plumed sum_hills \
-                        --hills monitor/{m}_{f}/{m}.hills \
-                        --outfile monitor/{m}_{f}/{m}.fes \
-                        --mintozero \" >> ./sumhills.sh'\
-                        .format(f=FS, m=PDB),
+        subprocess.call("echo \'cd {w}/\' >> ./sumhills.sh".format(w=wd),
                         shell=True)
-        os.system('bash sumhills.sh')
+        subprocess.call('echo \"plumed sum_hills \
+                        --hills {s}.hills \
+                        --outfile {s}_OLD.fes \
+                        --mintozero \" >> ./sumhills.sh'\
+                        .format(s=stem),
+                        shell=True)
+        subprocess.call('echo \"plumed sum_hills \
+                        --hills {s}.hills \
+                        --kt 2.5 \
+                        --stride 5000 \
+                        --outfile fes/fes_ \
+                        --mintozero \" >> ./sumhills.sh'\
+                        .format(s=stem),
+                        shell=True)    
+        subprocess.call("echo \'cd ../\' >> ./sumhills.sh",
+                        shell=True)
     except:
         print('ERROR: Unable to run SUM_HILLS 1')
-    ## run SUM_HILLS to generate free energy surface x35 10ns intervals
     try:
-        subprocess.call("echo \'#!/bin/bash/\' > ./sumhills.sh",
-                        shell=True)
-        subprocess.call('echo \"plumed sum_hills \
-                        --hills monitor/{m}_{f}/{m}.hills \
-                        --outfile monitor/{m}_{f}/{m}.fes \
-                        --mintozero -dt 10\" >> ./sumhills.sh'\
-                        .format(f=FS, m=PDB),
-                        shell=True)
-        os.system('bash sumhills.sh')
+        subprocess.call("mkdir {w}/fes/".format(w=wd), shell=True)
+        os.system('bash ./sumhills.sh')
     except:
-        print('ERROR: Unable to run SUM_HILLS 2')
+        print('ERROR: sumhills2')
 
 ########################################################
 #                  GENERATE OUT PDB
 ########################################################
 def generate_outpdb():
     """ generate out pdb file based on scoring system """
+    
     # ensure that COLVAR file exists in the working directory
-    try:
-        print("../UCB-350ns_Cterm/{}/{}.colvar ./{}".format(wd, PDB, colvar))
-        subprocess.call('cp ../UCB-350ns_Cterm/{}/{}.colvar ./{}'\
-                .format(wd, PDB, colvar), shell=True)
-    except:
-        print("ERROR: cannot find old COLVAR.")
-        sys.exit()
+    #try:
+    #    print("../UCB-350ns_Cterm/{}/{}.colvar ./{}".format(wd, PDB, colvar))
+    #    subprocess.call('cp ../UCB-350ns_Cterm/{}/{}.colvar ./{}'\
+    #            .format(wd, PDB, colvar), shell=True)
+    #except:
+    #    print("ERROR: cannot find old COLVAR.")
+    #    sys.exit()
+    
     # read in the old COLVAR file
     with open(colvar) as f:
         lines = f.readlines()
@@ -164,8 +170,8 @@ def generate_outpdb():
     # utilies Gromacs mindist to get minimum distance between protein and ligand
     dist_xvg = "{}/{}_mindist.xvg".format(wd, stem)
     try:
-        subprocess.call("echo 1 13 | {} mindist -f {} -s {} -od {} -n {}/i.ndx"\
-                .format(GMX_PATH, xtc, tpr, dist_xvg, wd), shell=True)
+        subprocess.call("echo 1 13 | {} mindist -f {} -s {} -od {} -n {}"\
+                .format(GMX_PATH, xtc, tpr, dist_xvg, ndx), shell=True)
     except:
         print("ERROR: gmx mindist failed")
         sys.exit()
@@ -174,6 +180,7 @@ def generate_outpdb():
         lines = f.readlines()
         md = [float(l.split()[1]) for l in lines if l[0] not in ("@", "#")]
     # add mindist data to pd.DataFrame
+    #print(len(md))
     df['min_dist'] = md
     # filter the data to within basic thresholds on proj, ext and min. distance
     df = df[(df.proj > 3.1) & (df.proj < 4.0) \
@@ -215,8 +222,8 @@ def generate_outpdb():
 
     try:
         subprocess.call("echo Protein_LIG | {} trjconv -s {} -f {} -o {} \
-                        -b {t} -e {t} -n {}/i.ndx"\
-                .format(GMX_PATH, tpr, xtc, out_name, wd, t=timestamp), shell=True)
+                        -b {t} -e {t} -n {}"\
+                .format(GMX_PATH, tpr, xtc, out_name, ndx, t=timestamp), shell=True)
     except:
         print("ERROR: trjconv failed.")
         sys.exit()
@@ -264,12 +271,13 @@ def align_pdbs():
 #           EDIT PDB ALIGN/ RMSD COLUMNS
 ########################################################
 
-def edit_pdb():
+def edit_pdb(in_origin, out_origin):
     """
     reassign the final two columns ( ALIGN(Y/N) and RMSD(Y/N) )
     for the ligand:               ALIGN = N, RMSD = Y
     for backbone protein atoms:   ALIGN = Y, RMSD = N
     """
+    origins = {"IN":in_origin, "OUT":out_origin}
     for state in ["IN", "OUT"]:
         mobile_fn = "{}/{}_{}".format(wd, stem, state)
         # read in newly-aligned pdb file
@@ -280,17 +288,25 @@ def edit_pdb():
 
         edited_data = []
         lig_res = atom_data[-2].split()[3]
+        print([x.split()[0] in ["TER","END"] for x in atom_data[-40:-30]])
+        print(lig_res)
         for line in atom_data:
-            if line.split()[0] in ["TER", "END"]:
-                pass
+            #if line.split()[0] in ["TER", "END"]:
+            #    continue
+            if line.split()[0] != "ATOM":
+                continue
             elif line.split()[3] == lig_res:
                 s = list(line)
                 s[-19] = "1"
                 s[-25] = "0"
                 line = "".join(s)
-            elif line.split()[2] not in ["CA", "C", "N", "O"]:
+            elif origins[state] == "GMX" and line.split()[2] not in ["CA", "C", "N", "O"]:
                 s = list(line)
-                s[-25] = "0"
+                s[-25] = "0" 
+                line = "".join(s)
+            elif origins[state] =="VMD" and line.split()[2] in ["CA", "C", "N", "O"]:
+                s = list(line)
+                s[-25] = "1" 
                 line = "".join(s)
             edited_data.append(line)
         # save edited pdb
@@ -305,14 +321,15 @@ def edit_pdb():
 
 def driver_rmsd():
     """ CREATE PLUMED.DRIVER FILE & RUN DRIVER """
+    new_col_path = "{}/{}_REW.colvar".format(wd, stem)
     # generate plumed - Driver command file
     with open("{}/plumed_4_driver.dat".format(wd), 'w') as f:
         f.write("rmsdI: RMSD REFERENCE={}/{}_IN_al_ed.pdb TYPE=OPTIMAL\n"\
                 .format(wd, stem))
         f.write("rmsdO: RMSD REFERENCE={}/{}_OUT_al_ed.pdb TYPE=OPTIMAL\n"\
                 .format(wd, stem))
-        f.write("PRINT STRIDE=1 ARG=rmsdI.*,rmsdO.* FILE={}/{}.COLVAR.RW\n"\
-                .format(wd, stem))
+        f.write("PRINT STRIDE=1 ARG=rmsdI.*,rmsdO.* FILE={}\n"\
+                .format(new_col_path))
     # call plumed Driver to generate new CV values
     try:
         subprocess.call("plumed driver --mf_xtc {x} \
@@ -330,29 +347,31 @@ def driver_rmsd():
 def combine_colvars():
     """ combine old and reweighted colvars """
     # define COLVAR locations
-    old_col_path = "{}/{}.COLVAR.old".format(wd, stem)
-    new_col_path = "{}/{}.COLVAR.RW".format(wd, stem)
+    old_col_path = "{}/{}_OLD.colvar".format(wd, stem)
+    new_col_path = "{}/{}_REW.colvar".format(wd, stem)
     # read in old COLVAR header for column names
     with open(old_col_path) as f:
         head = f.readlines()[0]
     head = head.split()[2:]
     # read in old COLVAR file
-    old_col = pd.read_csv(old_col_path, delim_whitespace=True, names=head,
-                          skiprows=1)
+    #old_col = pd.read_csv(old_col_path, delim_whitespace=True, names=head,skiprows=1)
+    old_col = pd.concat([df[df.time != "#!"] for df in pd.read_csv(old_col_path,delim_whitespace=True,names=head,skiprows=1, chunksize=1000)])
     # round timestamps to ensure successful merging
-    old_col['int_time'] = old_col['time'].astype(int)
+    #old_col['int_time'] = old_col['time'].astype(int)
+    old_col['int_time'] = old_col['time'].astype(float).astype(int)
     # remove duplicate lines created by restarts
     old_col = old_col.drop_duplicates(subset='int_time', keep='last')
     # cutdown old COLVAR - select every 5th line
     old_col = old_col.iloc[::5, :]
 
-    # cutdown and save GISMO COLVAR file from original COLVAR(3501 lines)
-    gis_col = old_col.iloc[::10, :]
-    gismo_col_path = "{}/{}.old.GIScolvar".format(wd, stem)
-    with open(gismo_col_path, 'w') as f:
+    # add every 10th line (and the second line) for GISMO colvar = 3503 lines
+    gis_col = old_col.iloc[:2,:]
+    gis_col = gis_col.append(old_col.iloc[10::10,:], ignore_index=True) 
+    gismo_col_path = "{}/{}_OLD_GISMO.colvar".format(wd, stem) 
+    with open(gismo_col_path,'w') as f:
         f.write("#! FIELDS "+" ".join(list(gis_col.columns.values))+"\n")
-    gis_col.to_csv(gismo_col_path, sep=" ", header=False, index=False, mode='a')
-
+    gis_col.to_csv(gismo_col_path,sep=" ",header=False,index=False,mode='a')
+    
     # read in new COLVAR header for column names
     with open(new_col_path) as f:
         head = f.readlines()[0]
@@ -376,19 +395,18 @@ def combine_colvars():
     # ensure a reasonable number of decimal places in output
     comb_col = comb_col.round(8)
 
-    comb_col_path = "{}/{}.COLVAR.combined".format(wd, stem)
+    comb_col_path = "{}/{}_COMBND.colvar".format(wd, stem)
     with open(comb_col_path, 'w') as f:
         f.write("#! FIELDS "+" ".join(list(comb_col.columns.values))+"\n")
     comb_col.to_csv(comb_col_path, sep=" ", header=False, index=False, mode='a')
-
-    # cutdown and save GISMO COLVAR file from reweighted COLVAR (3501 lines)
-# NEED TO ADD THE ADDITIONAL LINE HERE, making 3503 lines!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    comb_col = comb_col.iloc[::10, :]
-    gismo_col_path = "{}/{}.RW.GIScolvar".format(wd, stem)
-    with open(gismo_col_path, 'w') as f:
-        f.write("#! FIELDS "+" ".join(list(comb_col.columns.values))+"\n")
-    comb_col.to_csv(gismo_col_path, sep=" ", header=False, index=False, mode='a')
-
+   
+    # add every 10th line (and the second line) for GISMO colvar = 3503 lines
+    out_col = comb_col.iloc[:2,:]
+    out_col = out_col.append(comb_col.iloc[10::10,:], ignore_index=True) 
+    gismo_col_path = "{}/{}_REW_GISMO.colvar".format(wd, stem)
+    with open(gismo_col_path,'w') as f:
+        f.write("#! FIELDS "+" ".join(list(out_col.columns.values))+"\n")
+    out_col.to_csv(gismo_col_path,sep=" ",header=False,index=False,mode='a')
 ########################################################
 #                   RUN REWEIGHT.PY
 ########################################################
@@ -396,7 +414,8 @@ def combine_colvars():
 def run_ext_script():
     """ run Giorgio's reweight.py script """
     # define final output Free Energy name
-    outfile = "{}/{}.FES.RW".format(wd, stem)
+    comb_col_path = "{}/{}_COMBND.colvar".format(wd, stem)
+    outfile = "{}/{}_REW.fes".format(wd, stem)
     # run reweighting python script
     # may need to add some of these are user options
     try:
@@ -425,9 +444,9 @@ def cutdown_traj():
 
     try:
         subprocess.call("echo Backbone Protein_LIG | {} trjconv -s {} -f {} \
-                        -o {} -fit rot+trans -dt 100 -n {}/i.ndx"\
+                        -o {} -fit rot+trans -dt 100 -n {}"\
                         .format(GMX_PATH, tpr, xtc,
-                                gismo_xtc_path, wd, t=timestamp),
+                                gismo_xtc_path, ndx),
                         shell=True)
     except:
         print("ERROR: trjconv (GISMO) failed.")
@@ -442,14 +461,15 @@ if __name__ == '__main__':
         download_from_server("mn", "/home/cnio96/cnio96742/scratch/UCB_metaD/")
     run_sumhills()
 
-    gr.hills_plot(PDB, FS)
-    gr.diffusion_plots(PDB, FS, 2)
-    gr.two_cv_contour(PDB, FS, 30)
+    #gr.hills_plot(PDB, FS)
+    #gr.diffusion_plots(PDB, FS, 2)
+    #gr.two_cv_contour(PDB, FS, 30)
 
     generate_outpdb()
     align_pdbs()
-    edit_pdb()
+    edit_pdb("VMD","VMD")
     driver_rmsd()
     combine_colvars()
     run_ext_script()
     cutdown_traj()
+
