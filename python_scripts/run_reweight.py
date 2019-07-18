@@ -465,7 +465,7 @@ if __name__ == '__main__':
     #gr.diffusion_plots(PDB, FS, 2)
     #gr.two_cv_contour(PDB, FS, 30)
 
-    generate_outpdb()
+    #generate_outpdb()
     align_pdbs()
     edit_pdb("VMD","VMD")
     driver_rmsd()
