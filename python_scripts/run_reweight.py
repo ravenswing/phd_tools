@@ -17,16 +17,19 @@ import pymol.cmd as cmd
 ########################################################
 #                   PARSING INPUTS
 ########################################################
+# take in user arguments such that the script can be called from a bash script
+# and still be controlled 
 
+# initialise the argument parser
 PARSER = argparse.ArgumentParser(\
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="Reweighting Scripts", epilog=" ")
 
 # required arguments
 PARSER.add_argument("-pdb", type=str, default='5ai0',
-                    help='PDB code (default: %(default)s)')
+                    help='PDB code for the system (default: %(default)s)')
 PARSER.add_argument("-fs", type=int, default=1,
-                    help='fs (default: %(default)s)')
+                    help='Funnel Side (1 or 2) (default: %(default)s)')
 PARSER.add_argument("-refpath", type=str, default='./reference.pdb',
                     help='path to reference pdb for alignment in PyMol' +
                     '(default: %(default)s)')
@@ -51,7 +54,7 @@ PARSER.add_argument("-nocut", action="store_true",
 PARSER.add_argument("-download", action="store_true",
                     help='Download data from MN (default: %(default)s)')
 
-# define variable from user input arguments
+# define variable from user input argument via the argument parser
 ARGS = PARSER.parse_args()
 PDB = ARGS.pdb
 FS = ARGS.fs
@@ -61,14 +64,17 @@ COMP_PATH = ARGS.compath
 WEIGHTS = ARGS.weights
 
 # define file names and directory names
-wd = "{}_FS{}".format(PDB, FS)
-stem = "{}-FS{}".format(PDB, FS)
-colvar = "{}/{}_OLD.colvar".format(wd, stem)
-xtc = "{}/{}_dry_center.xtc".format(wd, stem)
-tpr = "{}/mdrun.tpr".format(wd)
-ndx = "{}/index_{}.ndx".format(wd,PDB)
-out_name = "{}/{}_OUT.pdb".format(wd, stem)
+wd = "{}_FS{}".format(PDB, FS)              # target working directory
+stem = "{}-FS{}".format(PDB, FS)            # root for all filenames 
+# define paths to all necessary input files
+colvar = "{}/{}_OLD.colvar".format(wd, stem)# output COLVAR from simulation
+xtc = "{}/{}_dry_center.xtc".format(wd, stem)# output xtc from post-processing
+tpr = "{}/mdrun.tpr".format(wd)             # tpr file used in the simulation
+ndx = "{}/index_{}.ndx".format(wd,PDB)      # index file for the current system
+out_name = "{}/{}_OUT.pdb".format(wd, stem) # OUT pdb name
 
+# if using -download:
+# store of username@address for ssh and rsync, keys = remote server name
 SERVERS = {'archer':   'rhys@login.archer.ac.uk',
            'archer2':  'rhyse@login.archer.ac.uk',
            'cscs':     'revans@ela.cscs.ch',
@@ -79,6 +85,9 @@ SERVERS = {'archer':   'rhys@login.archer.ac.uk',
 ########################################################
 #                   DOWNLOAD FILES
 ########################################################
+# download the files from the remote server the MD was run on. 
+# THIS DOES NOT WORK AND HAS NOT BEEN USED IN THIS ANALYSIS
+# ALL DOWNLOADS HAVE BEEN DONE MANUALLY INTO THE PRODUCTION/ DIRECTORY
 def download_from_server(server, remote_pth):
     """ download from remote server """
     remote_svr = SERVERS[server]
@@ -103,21 +112,27 @@ def download_from_server(server, remote_pth):
 ########################################################
 #                      SUM_HILLS
 ########################################################
+# use plumed sum_hills to generate:
+# 1. the initial FES using the pp.proj and pp.ext CVs
+# 2. the 35 FES files (10ns each) for convergence and reweighting in the 
+#    fes/ directory
 def run_sumhills():
     """ run plumed sum hills """
 
-    ## run SUM_HILLS to generate free energy surface
+    ## create a customised sumhills.sh to run both the sum_hills commands
     try:
         subprocess.call("echo \'#!/bin/bash/\' > ./sumhills.sh",
                         shell=True)
         subprocess.call("echo \'cd {w}/\' >> ./sumhills.sh".format(w=wd),
                         shell=True)
+        # create the "OLD" fes file, based on the original CVs
         subprocess.call('echo \"plumed sum_hills \
                         --hills {s}.hills \
                         --outfile {s}_OLD.fes \
                         --mintozero \" >> ./sumhills.sh'\
                         .format(s=stem),
                         shell=True)
+        # create the 35 fes files in the fes/ directory
         subprocess.call('echo \"plumed sum_hills \
                         --hills {s}.hills \
                         --kt 2.5 \
@@ -125,11 +140,12 @@ def run_sumhills():
                         --outfile fes/fes_ \
                         --mintozero \" >> ./sumhills.sh'\
                         .format(s=stem),
-                        shell=True)    
+                        shell=True)
         subprocess.call("echo \'cd ../\' >> ./sumhills.sh",
                         shell=True)
     except:
         print('ERROR: Unable to run SUM_HILLS 1')
+    # make the fes/ directory and run the command file just created
     try:
         subprocess.call("mkdir {w}/fes/".format(w=wd), shell=True)
         os.system('bash ./sumhills.sh')
@@ -139,24 +155,20 @@ def run_sumhills():
 ########################################################
 #                  GENERATE OUT PDB
 ########################################################
+# Uses a scoring system based on pp.proj, pp.ext and the minimum distance from
+# the ligand and the protein to determine a suitable frame for the OUT.pdb for
+# use when calculating the RMSDs for reweighting
+# NB: this did not work perfectly for all systems first try, and some had to be
+#     made manually
 def generate_outpdb():
-    """ generate out pdb file based on scoring system """
-    
-    # ensure that COLVAR file exists in the working directory
-    #try:
-    #    print("../UCB-350ns_Cterm/{}/{}.colvar ./{}".format(wd, PDB, colvar))
-    #    subprocess.call('cp ../UCB-350ns_Cterm/{}/{}.colvar ./{}'\
-    #            .format(wd, PDB, colvar), shell=True)
-    #except:
-    #    print("ERROR: cannot find old COLVAR.")
-    #    sys.exit()
-    
+    """ generate OUT pdb file based on scoring system """
     # read in the old COLVAR file
     with open(colvar) as f:
         lines = f.readlines()
+        # remove comment lines and extraneous columns
         data = [l for l in lines if l[0] not in ("@", "#")]
         data = [l.split()[:3] for l in data]
-    # extract time and pp.proj data
+    # extract time and pp.proj and pp.ext data
     df = pd.DataFrame({'time':[float(x[0]) for x in data[:]],\
             'proj':[float(x[1]) for x in data[:]],\
             'ext':[float(x[2]) for x in data[:]]})
@@ -164,11 +176,12 @@ def generate_outpdb():
     df['int_time'] = df['time'].astype(int)
     # remove duplicate lines created by restarts
     df = df.drop_duplicates(subset='int_time', keep='last')
-    # cutdown COLVAR to match traj - select every 5th lin
+    # cutdown COLVAR to match traj - select every 5th line
     df = df.iloc[::5, :]
     print(df.head(), df.shape)
-    # utilies Gromacs mindist to get minimum distance between protein and ligand
+    # define name for minimum distance data file
     dist_xvg = "{}/{}_mindist.xvg".format(wd, stem)
+    # utilise Gromacs mindist to get minimum distance between protein and ligand
     try:
         subprocess.call("echo 1 13 | {} mindist -f {} -s {} -od {} -n {}"\
                 .format(GMX_PATH, xtc, tpr, dist_xvg, ndx), shell=True)
@@ -467,9 +480,8 @@ if __name__ == '__main__':
 
     #generate_outpdb()
     align_pdbs()
-    edit_pdb("VMD","VMD")
+    edit_pdb("VMD", "VMD")
     driver_rmsd()
     combine_colvars()
     run_ext_script()
     cutdown_traj()
-
