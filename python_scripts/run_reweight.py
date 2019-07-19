@@ -53,6 +53,8 @@ PARSER.add_argument("-nocut", action="store_true",
                     help='Apply strict cutoff to data (default: %(default)s)')
 PARSER.add_argument("-download", action="store_true",
                     help='Download data from MN (default: %(default)s)')
+PARSER.add_argument("-nooutpdb", action="store_true",
+                    help='Supply a manual OUT pdb')
 
 # define variable from user input argument via the argument parser
 ARGS = PARSER.parse_args()
@@ -507,6 +509,76 @@ def cutdown_traj():
         sys.exit()
 
 ########################################################
+#               1-D FES & CONVERGENCE
+########################################################
+# create convergence FES files and 1-D fes for each CV
+def one_d_fes():
+    """ run plumed sum hills """
+    # create a customised sumhills.sh to run both the sum_hills commands
+    try:
+        subprocess.call("echo \'#!/bin/bash/\' > ./conv.sh",
+                        shell=True)
+        subprocess.call("echo \'cd {w}/\' >> ./conv.sh".format(w=wd),
+                        shell=True)
+    except:
+        print('ERROR: Unable to run SUM_HILLS 1')
+
+    for cv_name in ['proj', 'ext']:
+        try:
+            subprocess.call("mkdir conv_{cv}/".format(cv=cv_name), shell=True)
+            subprocess.call('echo \"plumed sum_hills \
+                            --hills {s}.hills \
+                            --kt 2.5 \
+                            --outfile {s}_{cv}.fes \
+                            --idw pp.{cv} \
+                            --mintozero \" >> ./sumhills.sh'\
+                            .format(s=stem, cv=cv_name),
+                            shell=True)
+            subprocess.call('echo \"plumed sum_hills \
+                            --hills {s}.hills \
+                            --kt 2.5 \
+                            --stride 5000 \
+                            --outfile conv_{cv}/fes_ \
+                            --idw pp.{cv} \
+                            --mintozero \" >> ./sumhills.sh'\
+                            .format(s=stem, cv=cv_name),
+                            shell=True)
+        except:
+            print('ERROR: Unable to make convergence script/dirs')
+    try:
+        subprocess.call("echo \'cd ../\' >> ./sumhills.sh",
+                        shell=True)
+        os.system('bash ./sumhills.sh')
+    except:
+        print('ERROR: sumhills2')
+
+
+    # set path to reweighted COLVAR
+    comb_col_path = "{}/{}_COMBND.colvar".format(wd, stem)
+    # define final output Free Energy name
+    rmsds = {'rmsdIN':5, 'rmsdOUT':6}
+    for rmsd in rmsds:
+        outfile = "{}/{}_{}.fes".format(wd, stem, rmsd)
+        # run reweighting python script individually for each CV
+        try:
+            subprocess.call("{pp} reweight.py \
+                    -bsf 10 \
+                    -fpref {w}/fes/fes_ \
+                    -nf 35 \
+                    -fcol 3 \
+                    -colvar {cCp} \
+                    -biascol 4 \
+                    -rewcol {rwc} \
+                    -outfile {of} \
+                    -v".format(pp=PY_PATH, w=wd, cCp=comb_col_path,
+                               rwc=rmsds[rmsd], of=outfile),
+                            shell=True)
+            print("SUCCESS: Output Reweighted Free Energy - {}".format(outfile))
+        except:
+            print("ERROR: reweight.py failed.")
+
+
+########################################################
 #                   EXECUTE ALL CODE
 ########################################################
 
@@ -516,17 +588,19 @@ if __name__ == '__main__':
     if ARGS.download:
         download_from_server("mn", "/home/cnio96/cnio96742/scratch/UCB_metaD/")
 
-    run_sumhills()
+    #run_sumhills()
 
     # PLOTTING THAT DOES NOT WORK YET
     #gr.hills_plot(PDB, FS)
     #gr.diffusion_plots(PDB, FS, 2)
     #gr.two_cv_contour(PDB, FS, 30)
 
-    #generate_outpdb()
-    align_pdbs()
-    edit_pdb("VMD", "VMD")
-    driver_rmsd()
-    combine_colvars()
-    run_ext_script()
-    cutdown_traj()
+    if not ARGS.nooutpdb:
+        generate_outpdb()
+    #align_pdbs()
+    #edit_pdb("VMD", "VMD")
+    #driver_rmsd()
+    #combine_colvars()
+    #run_ext_script()
+    #cutdown_traj()
+    one_d_fes()
