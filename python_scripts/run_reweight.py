@@ -579,6 +579,21 @@ def one_d_fes():
 
 
 ########################################################
+#                 DELTA G CALCULATIONS
+########################################################
+
+def calculate_dg():
+    dat_files = ['fes.dat',]
+    for fes_file in dat_files:
+
+        fes_data = pd.concat([df[df.time != "#!"] \
+                            for df in pd.read_csv(fes_file,
+                                                  delim_whitespace=True,
+                                                  names=['cv', 'fes_val'],
+                                                  skiprows=1,
+                                                  chunksize=1000)])
+
+########################################################
 #                   EXECUTE ALL CODE
 ########################################################
 
