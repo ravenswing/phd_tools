@@ -18,7 +18,7 @@ import pymol.cmd as cmd
 #                   PARSING INPUTS
 ########################################################
 # take in user arguments such that the script can be called from a bash script
-# and still be controlled 
+# and still be controlled
 
 # initialise the argument parser
 PARSER = argparse.ArgumentParser(\
@@ -65,7 +65,7 @@ WEIGHTS = ARGS.weights
 
 # define file names and directory names
 wd = "{}_FS{}".format(PDB, FS)              # target working directory
-stem = "{}-FS{}".format(PDB, FS)            # root for all filenames 
+stem = "{}-FS{}".format(PDB, FS)            # root for all filenames
 # define paths to all necessary input files
 colvar = "{}/{}_OLD.colvar".format(wd, stem)# output COLVAR from simulation
 xtc = "{}/{}_dry_center.xtc".format(wd, stem)# output xtc from post-processing
@@ -85,7 +85,7 @@ SERVERS = {'archer':   'rhys@login.archer.ac.uk',
 ########################################################
 #                   DOWNLOAD FILES
 ########################################################
-# download the files from the remote server the MD was run on. 
+# download the files from the remote server the MD was run on.
 # THIS DOES NOT WORK AND HAS NOT BEEN USED IN THIS ANALYSIS
 # ALL DOWNLOADS HAVE BEEN DONE MANUALLY INTO THE PRODUCTION/ DIRECTORY
 def download_from_server(server, remote_pth):
@@ -114,7 +114,7 @@ def download_from_server(server, remote_pth):
 ########################################################
 # use plumed sum_hills to generate:
 # 1. the initial FES using the pp.proj and pp.ext CVs
-# 2. the 35 FES files (10ns each) for convergence and reweighting in the 
+# 2. the 35 FES files (10ns each) for convergence and reweighting in the
 #    fes/ directory
 def run_sumhills():
     """ run plumed sum hills """
@@ -196,12 +196,14 @@ def generate_outpdb():
     #print(len(md))
     df['min_dist'] = md
     # filter the data to within basic thresholds on proj, ext and min. distance
-    df = df[(df.proj > 3.1) & (df.proj < 4.0) \
+    df = df[
+            (df.proj > 3.1) & (df.proj < 4.0) \
             & (df.ext < 0.5)
             & (df.min_dist > 1.2)
            ]\
             if not ARGS.nocut else \
-         df[(df.proj > 3.1) & (df.proj < 4.0) \
+         df[
+            (df.proj > 3.1) & (df.proj < 4.0) \
             | (df.ext < 0.5) \
             | (df.min_dist > 1.2)
            ]
@@ -231,12 +233,12 @@ def generate_outpdb():
     #df = df[ df['proj'].between(3.4,3.5,inclusive=True) ]
     # get nearest timestamp to extract snapshot
     #timestamp = round(df['time'].iloc[0],-1)
-    # use Gromacs trjconv to extract the snapshot
 
     try:
         subprocess.call("echo Protein_LIG | {} trjconv -s {} -f {} -o {} \
-                        -b {t} -e {t} -n {}"\
-                .format(GMX_PATH, tpr, xtc, out_name, ndx, t=timestamp), shell=True)
+                        -b {t} -e {t} -n {ind}"\
+                        .format(GMX_PATH, tpr, xtc, out_name,
+                                t=timestamp, ind=ndx), shell=True)
     except:
         print("ERROR: trjconv failed.")
         sys.exit()
@@ -244,35 +246,43 @@ def generate_outpdb():
 ########################################################
 #               ALIGN ALL PDBS TO REF.
 ########################################################
-
+# Use PyMOL to align the IN and newly-generated OUT pdbs, both are aligned
+# to a reference pdb specified in refpath (5ai0-FS1 from CT_Aligned dir.)
 def align_pdbs():
     """ generate and run a simple PyMOL aligning script """
+    # operates the same for both IN and OUT, aligning both to the reference
     for state in ["IN", "OUT"]:
-        # Tell PyMOL we don't want any GUI features.
-        #pymol.pymol_argv = ['pymol', '-Qic']
-        # Call the function below before using any PyMOL modules.
-        #pymol.finish_launching()
+            # FOR LOADING PYMOL WITHOUT CREATING A SCRIPT...
+            # ... DIDN'T WORK ON ARC FOR SOME REASON
+            # Tell PyMOL we don't want any GUI features.
+            #pymol.pymol_argv = ['pymol', '-Qic']
+            # Call the function below before using any PyMOL modules.
+            #pymol.finish_launching()
         # load reference pdb for aligning
         init_lines = "import pymol\ncmd.delete('all')\n"
+        # load the reference pdb as chosen by refpath
         cmd0 = "cmd.load(\"{}\", object=\"ref\")".format(ARGS.refpath)
         # load the IN/OUT pdb
         mobile_fn = "{}/{}_{}".format(wd, stem, state)
         cmd1 = "cmd.load(\"{}.pdb\", object=\"mob\")".format(mobile_fn)
+        # select only the core C-terminal residues
         cmd2 = "mobile = \"mob and resi 15-315\"\ntarget = \"ref and resi 15-315\""
+        # run the alignment, creating "aligned" object
         cmd3 = "cmd.align(mobile, target, object=\"aligned\")"
+        # save the aligned structure to a pdb file
         cmd4 = "cmd.save(\"{}_al.pdb\", \"mob\")".format(mobile_fn)
-        # write to a temporary file
+        # write to a temporary file for PyMOL to execute
         with open('temp.py', 'w') as f:
             f.write(init_lines)
             f.write("\n".join([cmd0, cmd1, cmd2, cmd3, cmd4]))
-        # align using PyMOL
+        # call PyMOL to run the commands above
         try:
             subprocess.call("pymol -cqi temp.py", shell=True)
         except subprocess.CalledProcessError as e:
             print("ERROR: PyMol command failed. {}, {}"
                   .format(e.output, e.returncode))
             sys.exit()
-        # copy the pdbs to a comparison folder
+        # copy the newly aligned pdb to a directory for comparison
         try:
             subprocess.call("cp {}_al.pdb {}".format(mobile_fn, COMP_PATH),
                             shell=True)
@@ -283,44 +293,55 @@ def align_pdbs():
 ########################################################
 #           EDIT PDB ALIGN/ RMSD COLUMNS
 ########################################################
-
+# edit the ALIGN and RMSD columns of the IN and OUT pdbs
 def edit_pdb(in_origin, out_origin):
     """
+    in_origin/out_origin = either "VMD" or "GMX"
     reassign the final two columns ( ALIGN(Y/N) and RMSD(Y/N) )
     for the ligand:               ALIGN = N, RMSD = Y
     for backbone protein atoms:   ALIGN = Y, RMSD = N
+    for all other protein atoms:  ALIGN = N, RMSD = N
     """
+    # set the origins of the pdb as specified in input
+    # this is necessary due to the ALIGN and RMSD columns having different
+    # default values when produced by VMD and Gromacs
     origins = {"IN":in_origin, "OUT":out_origin}
     for state in ["IN", "OUT"]:
+        # define filename root and working filename
         mobile_fn = "{}/{}_{}".format(wd, stem, state)
-        # read in newly-aligned pdb file
         filename = "{}_al.pdb".format(mobile_fn)
+        # read in newly-aligned pdb file
         with open(filename) as f:
             lines = f.readlines()
             atom_data = [l for l in lines if l[0] not in ("@", "#")]
-
         edited_data = []
+        #  assign the residue number of the ligand from the end of the pdb
         lig_res = atom_data[-2].split()[3]
-        print([x.split()[0] in ["TER","END"] for x in atom_data[-40:-30]])
-        print(lig_res)
+        #print(lig_res)
+        #print([x.split()[0] in ["TER","END"] for x in atom_data[-40:-30]])
+
+        # scan through and edit all the lines in the source pdb
         for line in atom_data:
-            #if line.split()[0] in ["TER", "END"]:
-            #    continue
+            # remove all TER/END lines that are not an atom definition
             if line.split()[0] != "ATOM":
                 continue
+            # assign the ligand to be the only RMSD candidate and not aligned
             elif line.split()[3] == lig_res:
                 s = list(line)
                 s[-19] = "1"
                 s[-25] = "0"
                 line = "".join(s)
+            # set only protein backbone atoms for alignment
             elif origins[state] == "GMX" and line.split()[2] not in ["CA", "C", "N", "O"]:
                 s = list(line)
-                s[-25] = "0" 
+                s[-25] = "0"
                 line = "".join(s)
-            elif origins[state] =="VMD" and line.split()[2] in ["CA", "C", "N", "O"]:
+            # set only protein backbone atoms for alignment
+            elif origins[state] == "VMD" and line.split()[2] in ["CA", "C", "N", "O"]:
                 s = list(line)
-                s[-25] = "1" 
+                s[-25] = "1"
                 line = "".join(s)
+            # add all changed lines to new list
             edited_data.append(line)
         # save edited pdb
         ed_file = filename[:-4]+"_ed.pdb"
@@ -331,19 +352,23 @@ def edit_pdb(in_origin, out_origin):
 ########################################################
 #       CREATE PLUMED.DRIVER FILE & RUN DRIVER
 ########################################################
-
+# use plumed Driver to create the reweighted COLVAR file
 def driver_rmsd():
     """ CREATE PLUMED.DRIVER FILE & RUN DRIVER """
+    # path for the reweighted COLVAR
     new_col_path = "{}/{}_REW.colvar".format(wd, stem)
     # generate plumed - Driver command file
     with open("{}/plumed_4_driver.dat".format(wd), 'w') as f:
+        # RMSD IN
         f.write("rmsdI: RMSD REFERENCE={}/{}_IN_al_ed.pdb TYPE=OPTIMAL\n"\
                 .format(wd, stem))
+        # RMSD OUT
         f.write("rmsdO: RMSD REFERENCE={}/{}_OUT_al_ed.pdb TYPE=OPTIMAL\n"\
                 .format(wd, stem))
+        # print output to reweighted COLVAR
         f.write("PRINT STRIDE=1 ARG=rmsdI.*,rmsdO.* FILE={}\n"\
                 .format(new_col_path))
-    # call plumed Driver to generate new CV values
+    # call plumed Driver to generate new COLVAR
     try:
         subprocess.call("plumed driver --mf_xtc {x} \
                 --plumed {w}/plumed_4_driver.dat \
@@ -356,7 +381,8 @@ def driver_rmsd():
 ########################################################
 #           COMBINE NEW AND OLD COLVAR
 ########################################################
-
+# clean up old COLVAR file and combine with newly generated, reweighted COLVAR
+# (removes comment lines and removes duplicates timestamps)
 def combine_colvars():
     """ combine old and reweighted colvars """
     # define COLVAR locations
@@ -366,25 +392,32 @@ def combine_colvars():
     with open(old_col_path) as f:
         head = f.readlines()[0]
     head = head.split()[2:]
-    # read in old COLVAR file
-    #old_col = pd.read_csv(old_col_path, delim_whitespace=True, names=head,skiprows=1)
-    old_col = pd.concat([df[df.time != "#!"] for df in pd.read_csv(old_col_path,delim_whitespace=True,names=head,skiprows=1, chunksize=1000)])
+    # read in old COLVAR file into dataFrame
+    # filters out comment lines and splits columns via whitespace
+    old_col = pd.concat([df[df.time != "#!"] \
+                        for df in pd.read_csv(old_col_path,
+                                              delim_whitespace=True,
+                                              names=head,
+                                              skiprows=1,
+                                              chunksize=1000)])
     # round timestamps to ensure successful merging
-    #old_col['int_time'] = old_col['time'].astype(int)
     old_col['int_time'] = old_col['time'].astype(float).astype(int)
     # remove duplicate lines created by restarts
     old_col = old_col.drop_duplicates(subset='int_time', keep='last')
-    # cutdown old COLVAR - select every 5th line
+    # cutdown old COLVAR to match trajectories by selecting every 5th line
     old_col = old_col.iloc[::5, :]
 
     # add every 10th line (and the second line) for GISMO colvar = 3503 lines
-    gis_col = old_col.iloc[:2,:]
-    gis_col = gis_col.append(old_col.iloc[10::10,:], ignore_index=True) 
-    gismo_col_path = "{}/{}_OLD_GISMO.colvar".format(wd, stem) 
-    with open(gismo_col_path,'w') as f:
+    gis_col = old_col.iloc[:2, :]
+    gis_col = gis_col.append(old_col.iloc[10::10, :], ignore_index=True)
+    # define path for the original GISMO COLVAR file
+    gismo_col_path = "{}/{}_OLD_GISMO.colvar".format(wd, stem)
+    # add the header line to the new COLVAR
+    with open(gismo_col_path, 'w') as f:
         f.write("#! FIELDS "+" ".join(list(gis_col.columns.values))+"\n")
-    gis_col.to_csv(gismo_col_path,sep=" ",header=False,index=False,mode='a')
-    
+    # save the cutdown original COLVAR
+    gis_col.to_csv(gismo_col_path, sep=" ", header=False, index=False, mode='a')
+
     # read in new COLVAR header for column names
     with open(new_col_path) as f:
         head = f.readlines()[0]
@@ -407,30 +440,37 @@ def combine_colvars():
     comb_col = comb_col[column_order]
     # ensure a reasonable number of decimal places in output
     comb_col = comb_col.round(8)
-
+    # define path for the new combined COLVAR file
     comb_col_path = "{}/{}_COMBND.colvar".format(wd, stem)
+    # add the header line to the new COLVAR
     with open(comb_col_path, 'w') as f:
         f.write("#! FIELDS "+" ".join(list(comb_col.columns.values))+"\n")
+    # save the combined COLVAR
     comb_col.to_csv(comb_col_path, sep=" ", header=False, index=False, mode='a')
-   
+
     # add every 10th line (and the second line) for GISMO colvar = 3503 lines
-    out_col = comb_col.iloc[:2,:]
-    out_col = out_col.append(comb_col.iloc[10::10,:], ignore_index=True) 
+    out_col = comb_col.iloc[:2, :]
+    out_col = out_col.append(comb_col.iloc[10::10, :], ignore_index=True)
+    # define path for the reweighted GISMO COLVAR file
     gismo_col_path = "{}/{}_REW_GISMO.colvar".format(wd, stem)
-    with open(gismo_col_path,'w') as f:
+    # add the header line to the new COLVAR
+    with open(gismo_col_path, 'w') as f:
         f.write("#! FIELDS "+" ".join(list(out_col.columns.values))+"\n")
-    out_col.to_csv(gismo_col_path,sep=" ",header=False,index=False,mode='a')
+    # save the cutdown reweighted COLVAR
+    out_col.to_csv(gismo_col_path, sep=" ", header=False, index=False, mode='a')
+
 ########################################################
 #                   RUN REWEIGHT.PY
 ########################################################
-
+# run the reweight.py script made by Giorgio
 def run_ext_script():
     """ run Giorgio's reweight.py script """
-    # define final output Free Energy name
+    # set path to reweighted COLVAR
     comb_col_path = "{}/{}_COMBND.colvar".format(wd, stem)
+    # define final output Free Energy name
     outfile = "{}/{}_REW.fes".format(wd, stem)
     # run reweighting python script
-    # may need to add some of these are user options
+    # may need to add some of these as user options
     try:
         subprocess.call("{pp} reweight.py \
                 -bsf 10 \
@@ -450,11 +490,12 @@ def run_ext_script():
 ########################################################
 #               CUTDOWN GISMO TRAJ.
 ########################################################
-
+# produce a cutdown version of the initial trajectory for use with GISMO
 def cutdown_traj():
     """ cutdown the trajectories using Gromacs trjconv  ready for GISMO """
+    # define the output GISMO xtc path
     gismo_xtc_path = "{}/{}_GISMO.xtc".format(wd, stem)
-
+    # call gmx trjconv with -dt 100 to cut down the trajectory
     try:
         subprocess.call("echo Backbone Protein_LIG | {} trjconv -s {} -f {} \
                         -o {} -fit rot+trans -dt 100 -n {}"\
@@ -469,11 +510,15 @@ def cutdown_traj():
 #                   EXECUTE ALL CODE
 ########################################################
 
+# only run in this manner if the code is called not imported
 if __name__ == '__main__':
+    # only download if the -download flag is given
     if ARGS.download:
         download_from_server("mn", "/home/cnio96/cnio96742/scratch/UCB_metaD/")
+
     run_sumhills()
 
+    # PLOTTING THAT DOES NOT WORK YET
     #gr.hills_plot(PDB, FS)
     #gr.diffusion_plots(PDB, FS, 2)
     #gr.two_cv_contour(PDB, FS, 30)
