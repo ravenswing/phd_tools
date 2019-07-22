@@ -18,9 +18,9 @@ import seaborn as sns
 # Source directory for the files on your local system
 srcdir = '/media/rhys/ExtHD/Project/carlos_peptides/LONG/hydrophilic_brush/helical_brush/'
 
-mol = 'EK5_helix'
+mol = 'E4K4_helix'
 figure_path = '{}figures/{}/'.format(srcdir,mol)
-pep_length=10
+pep_length=16
 num_pep=9
 # default_x = np.linspace(0,2500000.0,num=25001)
 plt.style.use('seaborn-poster')
@@ -109,7 +109,7 @@ def rolAvgPlot2 (data, window_size, no_of_std, ylims, ylabel, legend, figure_nam
  #                               PROCESSING HELICITY
 ##############################################################################
 
-def processHelicity (srcdir, mol,frames):
+def processHelicity(srcdir, mol, frames, helix_type):
     print("Processing Helicity")
     col = ['pep'+str(x+1) for x in range(num_pep)]
     df = pd.DataFrame(columns=col)
@@ -118,17 +118,17 @@ def processHelicity (srcdir, mol,frames):
     topol = '{}{m}/06-MD/{m}_protein.gro'.format(srcdir, m=mol)
 
     for chunk in md.iterload(xtc, 100, top=topol):
-        in_data = np.empty((100,9))
+        in_data = np.empty((100, 9))
         for i in range(num_pep):
             peptide_chunk = chunk.atom_slice(chunk.top.select("resid {} to {}".format(i*pep_length, (i+1)*pep_length-1)))
-            dssp = md.compute_dssp(peptide_chunk, simplified=True)
-            helicity = (dssp =='H') | (dssp == 'G') | (dssp == 'I')
-            in_data[:,i] = np.sum(helicity, axis=1)/1.0
+            dssp = md.compute_dssp(peptide_chunk, simplified=False)
+            helicity = (dssp == helix_type)
+            in_data[:, i] = np.sum(helicity, axis=1)/1.0
         df = df.append(pd.DataFrame(in_data, columns=col), ignore_index=True)
-    df['tot_hel'] = df.sum(axis=1)
+    df['tot_hel_'+helix_type] = df.sum(axis=1)
     print(df.head())
     print(df.shape)
-    df.iloc[:frames,:].to_csv(mol+'_hel_data.csv')
+    df.iloc[:frames, :].to_csv(mol+'_hel_'+helix_type+'_data.csv')
 
 
 def processHBonds(mol,limit):
@@ -155,11 +155,17 @@ def processHBonds(mol,limit):
 ###############################################################################
 #                               PLOTTING & RUNNING
 ###############################################################################
-processing = [False,False]
-if processing[0]: processHelicity(srcdir,mol,50000)
-elif processing[1]: processHBonds(mol,0.28)
+processing = [True, False]
+NORMAL = False
+SPLIT = True
+if processing[0]:
+    processHelicity(srcdir, mol, 50000, 'H')
+    processHelicity(srcdir, mol, 50000, 'G')
+    processHelicity(srcdir, mol, 50000, 'I')
+elif processing[1]:
+    processHBonds(mol,0.28)
 
-else:
+elif NORMAL:
     helicity_data = pd.read_csv(mol+'_hel_data.csv', usecols=['tot_hel'])
     helicity_data['tot_hel'] = (helicity_data['tot_hel'] / helicity_data['tot_hel'].max())*100
     hbond_data = pd.read_csv(mol+'_hyb_data.csv', usecols=['tot_hyb'])
@@ -211,36 +217,9 @@ else:
 
     fig.savefig(figure_path+mol+'_double_plot.png', bbox_inches='tight', transparent=True, dpi=300)
 
-'''
-#############################################################
- 29 helicity = dssp.copy()
- 28 #helicity_per_res = dssp.copy()
- 27 
- 26 for mol in helicity:
- 25     for p in helicity[mol]:
- 24         helicity[mol][p] = (dssp[mol][p] =='H')
- 23     #helicity_per_res[mol] = np.sum(helicity[mol], axis=0)[:traj.top.n_residues]/float(traj.n_frames)
- 22         helicity[mol][p] = np.sum(helicity[mol][p], axis=1)/1.0
- 21 
- 20 #rolAvgPlot2(helicity, 200, 1.0, [0,15],"DSSP Score", ["XYZ","Z"], "{}_DSSP".format(mol), True)
- 19 #rolAvgPlot2(data, window_size, no_std, ylims, ylabel, figure_title, saveFig)
- 18 
-
- 16 
- 15 
- 14 #plt.plot(EK5_hyb)
- 13 #plt.savefig(figure_path+'test2.png')
- 12 #############################################################################
-
- 10 system = 'EK5_helix'
-  9 
-  8 EK5_DSSP_overT = []
-  7 
-  6 for i in range(len(helicity[system])):
-  5     EK5_DSSP_overT.append(helicity[system][i])
-  4     
-  3 EK5_DSSP_overT = np.array(EK5_DSSP_overT)
-  2 
-  1 EK5_DSSP = np.sum(EK5_DSSP_overT, 0)
-251 '''
-
+elif SPLIT:
+    split_data = pd.read_csv(mol+'_hel_H_data.csv', usecols=['tot_hel_H'])
+    for hel_type in ['G', 'I']:
+        new_data = pd.read_csv(mol+'_hel_'+hel_type+'_data.csv', usecols=['tot_hel_'+hel_type])
+        split_data = split_data.merge(new_data,left_index=True,right_index=True)
+    fig, ax1 = plt.subplots(figsize=(20,16))
