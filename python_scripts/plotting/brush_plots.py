@@ -155,9 +155,11 @@ def processHBonds(mol,limit):
 ###############################################################################
 #                               PLOTTING & RUNNING
 ###############################################################################
-processing = [True, False]
+processing = [False, False]
 NORMAL = False
 SPLIT = True
+window_size = 500
+font_sizes=[40,36]
 if processing[0]:
     processHelicity(srcdir, mol, 50000, 'H')
     processHelicity(srcdir, mol, 50000, 'G')
@@ -223,3 +225,16 @@ elif SPLIT:
         new_data = pd.read_csv(mol+'_hel_'+hel_type+'_data.csv', usecols=['tot_hel_'+hel_type])
         split_data = split_data.merge(new_data,left_index=True,right_index=True)
     fig, ax1 = plt.subplots(figsize=(20,16))
+    x = np.arange(50000)
+    fig, ax1 = plt.subplots(figsize=(20,16))
+    for d in ['H', 'G', 'I']:
+        split_data['tot_hel_'+d] = (split_data['tot_hel_'+d] / split_data['tot_hel_H'].max())*100
+        split_data['rm_'+d] = split_data['tot_hel_'+d].rolling(window_size, center=True).mean()
+        ax1.plot(split_data['rm_'+d], linewidth=4.0, zorder=21)
+
+    ns = np.linspace(0,1000,11, dtype='int')
+    ts = np.linspace(0, 50000, 11)
+    ax1.set_xticks(ticks=ts )
+    ax1.set_xticklabels(labels=ns,fontweight='medium', fontsize=font_sizes[1])
+    ax1.legend()
+    fig.savefig(figure_path+mol+'_split_helicity.png', bbox_inches='tight', transparent=True, dpi=300)

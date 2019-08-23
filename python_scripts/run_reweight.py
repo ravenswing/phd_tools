@@ -3,10 +3,13 @@
                             REWEIGHTING SCRIPT
 ===============================================================================
 """
+from math import log, exp
 import argparse
+import glob
 import os
 import subprocess
 import sys
+import numpy as np
 import pandas as pd
 import pymol
 import pymol.cmd as cmd
@@ -72,8 +75,9 @@ stem = "{}-FS{}".format(PDB, FS)            # root for all filenames
 colvar = "{}/{}_OLD.colvar".format(wd, stem)# output COLVAR from simulation
 xtc = "{}/{}_dry_center.xtc".format(wd, stem)# output xtc from post-processing
 tpr = "{}/mdrun.tpr".format(wd)             # tpr file used in the simulation
-ndx = "{}/index_{}.ndx".format(wd,PDB)      # index file for the current system
+ndx = "{}/index_{}.ndx".format(wd, PDB)      # index file for the current system
 out_name = "{}/{}_OUT.pdb".format(wd, stem) # OUT pdb name
+DATA_FILE = 'dG_data.h5'
 
 # if using -download:
 # store of username@address for ssh and rsync, keys = remote server name
@@ -205,7 +209,7 @@ def generate_outpdb():
            ]\
             if not ARGS.nocut else \
          df[
-            (df.proj > 3.1) & (df.proj < 4.0) \
+             (df.proj > 3.1) & (df.proj < 4.0) \
             | (df.ext < 0.5) \
             | (df.min_dist > 1.2)
            ]
@@ -582,16 +586,54 @@ def one_d_fes():
 #                 DELTA G CALCULATIONS
 ########################################################
 
-def calculate_dg():
-    dat_files = ['fes.dat',]
-    for fes_file in dat_files:
+def calculate_delta_g(fes_file, in_out_cutoff):
+    """ Calculate binding free energy from one fes file """
+    kT = 2.49
+    fes_data = pd.concat([df[df.cv != "#!"] \
+                          for df in \
+                          pd.read_csv(fes_file,
+                                      delim_whitespace=True,
+                                      names=['cv', 'fes_val'],
+                                      skiprows=5,
+                                      chunksize=1000)
+                         ])
+    print(fes_data.head())
+    # convert biases to probabilities
+    fes_data['fes_val'] = fes_data['fes_val'].apply(lambda x: exp(-x / kT))
+    # find total probabilities for each 'in' and 'out'
+    in_out = [fes_data[fes_data.cv <= in_out_cutoff].fes_val.sum(),
+              fes_data[fes_data.cv > in_out_cutoff].fes_val.sum()]
+    print(in_out)
+    # convert probabilities back to free energy values
+    in_out = list(map(lambda x: -kT * log(x / sum(in_out)) if x > 0 else np.inf, in_out))
+    # min-to-zero FE values
+    in_out = [i - min(in_out) for i in in_out]
+    # calc binding dG
+    delta_g = in_out[0] - in_out[1]
+    # convert to kcal and apply volume correction
+    delta_g = (delta_g / 4.184) - 1.54
+    return delta_g
 
-        fes_data = pd.concat([df[df.time != "#!"] \
-                            for df in pd.read_csv(fes_file,
-                                                  delim_whitespace=True,
-                                                  names=['cv', 'fes_val'],
-                                                  skiprows=1,
-                                                  chunksize=1000)])
+def process_delta_g(data_file, sim_time, in_out_cutoff):
+    """ Process Convergence Proj files to calculate dG """
+    # read in HDF5 database of dG values
+    database = pd.read_hdf(data_file, key='deltag')
+    # find fes files and run dG calculation on them (in order)
+    delta_g_vals = []
+    for fes_file in sorted(glob.glob('{}/conv_proj/fes_*'.format(wd)),\
+                    key=lambda name: int(name.split('_')[-1][:-4])):
+        delta_g = calculate_delta_g(fes_file, in_out_cutoff)
+        delta_g_vals.append(delta_g)
+    # create 0-350 ns timestamps for database indexing
+    index = np.arange(0, (sim_time/10)+1)*10
+    funnel = 'FS'+FS
+    # Make user aware of overwriting and database status
+    if PDB in database.columns.levels[0] and FS in database.columns.levels[1]:
+        print("\nDelta_G values found for {}-{}\n\tOVERWRITING".format(PDB, funnel))
+    else:
+        print("\nNo delta_G values found for {}-{}\n\tADDING TO DATABASE".format(PDB, funnel))
+    # Place new dG data into database, indexed correctly
+    database[PDB, funnel] = pd.Series(delta_g_vals, index=index)
 
 ########################################################
 #                   EXECUTE ALL CODE
