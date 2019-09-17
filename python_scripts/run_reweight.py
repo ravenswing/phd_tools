@@ -32,7 +32,9 @@ PARSER = argparse.ArgumentParser(\
 PARSER.add_argument("-pdb", type=str, default='5ai0',
                     help='PDB code for the system (default: %(default)s)')
 PARSER.add_argument("-fs", type=int, default=1,
-                    help='Funnel Side (1 or 2) (default: %(default)s)')
+                    help='Funnel Side Integer (1 or 2) (default: %(default)s)')
+PARSER.add_argument("-tpr", type=str, default='mdrun.tpr',
+                    help='tpr file to use (default: %(default)s)')
 PARSER.add_argument("-refpath", type=str, default='./reference.pdb',
                     help='path to reference pdb for alignment in PyMol' +
                     '(default: %(default)s)')
@@ -74,10 +76,11 @@ stem = "{}-FS{}".format(PDB, FS)            # root for all filenames
 # define paths to all necessary input files
 colvar = "{}/{}_OLD.colvar".format(wd, stem)# output COLVAR from simulation
 xtc = "{}/{}_dry_center.xtc".format(wd, stem)# output xtc from post-processing
-tpr = "{}/mdrun.tpr".format(wd)             # tpr file used in the simulation
-ndx = "{}/index_{}.ndx".format(wd, PDB)      # index file for the current system
+tpr = "{}/{}".format(wd, ARGS.tpr)             # tpr file used in the simulation
+#ndx = "{}/index_{}.ndx".format(wd, PDB)      # index file for the current system
+ndx = "{}/i.ndx".format(wd)      # index file for the current system
 out_name = "{}/{}_OUT.pdb".format(wd, stem) # OUT pdb name
-DATA_FILE = 'dG_data.h5'
+DATA_FILE = 'dG_database.h5'
 
 # if using -download:
 # store of username@address for ssh and rsync, keys = remote server name
@@ -415,7 +418,10 @@ def combine_colvars():
 
     # add every 10th line (and the second line) for GISMO colvar = 3503 lines
     gis_col = old_col.iloc[:2, :]
+    
     gis_col = gis_col.append(old_col.iloc[10::10, :], ignore_index=True)
+    #   ONLY FOR 5akk: gis_col = gis_col.append(old_col.iloc[10:49700:10, :], ignore_index=True)
+    
     # define path for the original GISMO COLVAR file
     gismo_col_path = "{}/{}_OLD_GISMO.colvar".format(wd, stem)
     # add the header line to the new COLVAR
@@ -481,7 +487,7 @@ def run_ext_script():
         subprocess.call("{pp} reweight.py \
                 -bsf 10 \
                 -fpref {w}/fes/fes_ \
-                -nf 35 \
+                -nf 50 \
                 -fcol 3 \
                 -colvar {cCp} \
                 -biascol 4 \
@@ -503,6 +509,7 @@ def cutdown_traj():
     gismo_xtc_path = "{}/{}_GISMO.xtc".format(wd, stem)
     # call gmx trjconv with -dt 100 to cut down the trajectory
     try:
+        # ONLY FOR 5akk: subprocess.call("echo Backbone Protein_LIG | {} trjconv -s {} -f {} -e 497000 \
         subprocess.call("echo Backbone Protein_LIG | {} trjconv -s {} -f {} \
                         -o {} -fit rot+trans -dt 100 -n {}"\
                         .format(GMX_PATH, tpr, xtc,
@@ -529,13 +536,13 @@ def one_d_fes():
 
     for cv_name in ['proj', 'ext']:
         try:
-            subprocess.call("mkdir conv_{cv}/".format(cv=cv_name), shell=True)
+            subprocess.call('echo \"mkdir conv_{cv}/\" >> ./conv.sh'.format(cv=cv_name), shell=True)
             subprocess.call('echo \"plumed sum_hills \
                             --hills {s}.hills \
                             --kt 2.5 \
                             --outfile {s}_{cv}.fes \
                             --idw pp.{cv} \
-                            --mintozero \" >> ./sumhills.sh'\
+                            --mintozero \" >> ./conv.sh'\
                             .format(s=stem, cv=cv_name),
                             shell=True)
             subprocess.call('echo \"plumed sum_hills \
@@ -544,15 +551,15 @@ def one_d_fes():
                             --stride 5000 \
                             --outfile conv_{cv}/fes_ \
                             --idw pp.{cv} \
-                            --mintozero \" >> ./sumhills.sh'\
+                            --mintozero \" >> ./conv.sh'\
                             .format(s=stem, cv=cv_name),
                             shell=True)
         except:
             print('ERROR: Unable to make convergence script/dirs')
     try:
-        subprocess.call("echo \'cd ../\' >> ./sumhills.sh",
+        subprocess.call("echo \'cd ../\' >> ./conv.sh",
                         shell=True)
-        os.system('bash ./sumhills.sh')
+        os.system('bash ./conv.sh')
     except:
         print('ERROR: sumhills2')
 
@@ -568,7 +575,7 @@ def one_d_fes():
             subprocess.call("{pp} reweight.py \
                     -bsf 10 \
                     -fpref {w}/fes/fes_ \
-                    -nf 35 \
+                    -nf 50 \
                     -fcol 3 \
                     -colvar {cCp} \
                     -biascol 4 \
@@ -596,22 +603,21 @@ def calculate_delta_g(fes_file, in_out_cutoff):
                                       names=['cv', 'fes_val'],
                                       skiprows=5,
                                       chunksize=1000)
-                         ])
-    print(fes_data.head())
+                         ]) 
     # convert biases to probabilities
     fes_data['fes_val'] = fes_data['fes_val'].apply(lambda x: exp(-x / kT))
     # find total probabilities for each 'in' and 'out'
     in_out = [fes_data[fes_data.cv <= in_out_cutoff].fes_val.sum(),
-              fes_data[fes_data.cv > in_out_cutoff].fes_val.sum()]
-    print(in_out)
+              fes_data[fes_data.cv > in_out_cutoff].fes_val.sum()] 
+    total = sum(in_out)
     # convert probabilities back to free energy values
-    in_out = list(map(lambda x: -kT * log(x / sum(in_out)) if x > 0 else np.inf, in_out))
+    in_out = list(map(lambda x: -kT * log(x / total) if x > 0 else np.inf, in_out))
     # min-to-zero FE values
     in_out = [i - min(in_out) for i in in_out]
     # calc binding dG
     delta_g = in_out[0] - in_out[1]
     # convert to kcal and apply volume correction
-    delta_g = (delta_g / 4.184) - 1.54
+    delta_g = (delta_g / 4.184) + 1.54
     return delta_g
 
 def process_delta_g(data_file, sim_time, in_out_cutoff):
@@ -622,18 +628,23 @@ def process_delta_g(data_file, sim_time, in_out_cutoff):
     delta_g_vals = []
     for fes_file in sorted(glob.glob('{}/conv_proj/fes_*'.format(wd)),\
                     key=lambda name: int(name.split('_')[-1][:-4])):
-        delta_g = calculate_delta_g(fes_file, in_out_cutoff)
+        delta_g = calculate_delta_g(fes_file, in_out_cutoff) 
         delta_g_vals.append(delta_g)
     # create 0-350 ns timestamps for database indexing
+    
     index = np.arange(0, (sim_time/10)+1)*10
-    funnel = 'FS'+FS
+    #   ONLY FOR 5akk: index = np.arange(0, (sim_time/10))*10
+    
+    funnel = 'FS{}'.format(FS)
     # Make user aware of overwriting and database status
     if PDB in database.columns.levels[0] and FS in database.columns.levels[1]:
         print("\nDelta_G values found for {}-{}\n\tOVERWRITING".format(PDB, funnel))
     else:
         print("\nNo delta_G values found for {}-{}\n\tADDING TO DATABASE".format(PDB, funnel))
     # Place new dG data into database, indexed correctly
-    database[PDB, funnel] = pd.Series(delta_g_vals, index=index)
+    database[PDB, funnel] = pd.Series(delta_g_vals[:51], index=index)
+
+    database.to_hdf(data_file, key='deltag')
 
 ########################################################
 #                   EXECUTE ALL CODE
@@ -645,7 +656,7 @@ if __name__ == '__main__':
     if ARGS.download:
         download_from_server("mn", "/home/cnio96/cnio96742/scratch/UCB_metaD/")
 
-    #run_sumhills()
+    run_sumhills()
 
     # PLOTTING THAT DOES NOT WORK YET
     #gr.hills_plot(PDB, FS)
@@ -654,10 +665,11 @@ if __name__ == '__main__':
 
     if not ARGS.nooutpdb:
         generate_outpdb()
-    #align_pdbs()
-    #edit_pdb("VMD", "VMD")
-    #driver_rmsd()
-    #combine_colvars()
-    #run_ext_script()
-    #cutdown_traj()
+    align_pdbs()
+    edit_pdb("VMD", "VMD")
+    driver_rmsd()
+    combine_colvars()
+    run_ext_script()
+    cutdown_traj()
     one_d_fes()
+    process_delta_g(DATA_FILE, 500, 3.5)
