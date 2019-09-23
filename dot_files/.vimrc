@@ -29,6 +29,11 @@ let g:syntastic_always_populate_loc_list = 1
 let g:syntastic_check_on_open = 1
 let g:syntastic_check_on_wq = 0
 let g:syntastic_error_symbol = "✗"
+let g:syntastic_quiet_messages = { "regex": [
+        \ ' conform to UPPER_CASE naming style',
+        \ ' conform to snake_case naming style',
+        \ ] }
+
 
 " PEP8 Python format checking
 Plug 'nvie/vim-flake8'
