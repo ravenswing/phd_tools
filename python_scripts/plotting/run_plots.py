@@ -8,6 +8,7 @@
 import glob
 import subprocess
 import sys
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -56,11 +57,11 @@ def all_plots(dir_list):
 '''
 
 #all_plots(data_dirs)
-pdb_list = ['5akk','5alt']
+pdb_list = ['5akk','5alt', '5ai0']
 def fes_multiplot(pdb_list):
 
-    fig = plt.figure()
-    axes = fig.subplots(2,2,sharex=True,sharey=True)
+    fig = plt.figure(figsize=(8,10))
+    axes = fig.subplots(3,2,sharex=True,sharey=True)
     n = 0
     for pdb in pdb_list:
         f = 0
@@ -69,20 +70,25 @@ def fes_multiplot(pdb_list):
             plot_num = int(''.join(['2',str(len(pdb_list)),str(n)]))
             print(plot_num)
 
-            #fes_data, axis_labels = load.fes("{}/{}-{}_OLD.fes".format(directory, pdb, fs), False)  
-            fes_data, axis_labels = load.fes("{}/5akk-FS1_OLD.fes".format(directory), False)
+            fes_data, axis_labels = load.fes("{}/{}-{}_OLD.fes".format(directory, pdb, fs), False)  
+            #fes_data, axis_labels = load.fes("{}/{}-{}_OLD.fes".format(directopdb,fs), False)
             gr.two_cv_contour(fes_data, pdb, fs, axis_labels, 31, 'OLD_FES', "Figures/{}".format(directory), axes[n,f])
             f+=1
 
         n += 1
 
-    #for i in [0,1,2,3,4]:
-     #   gr.make_ax(fig, i+1)
 
-    #fig.subplots(sharex=True, sharey=True)
+    plt.subplots_adjust(left=0.2)
+    for i in np.arange(len(pdb_list)):
+        fig.text(0.1, 0.165+(i*0.33), axis_labels[1]+' / nm', va='center', rotation='vertical')
+        fig.text(0.04,0.165+(i*0.33), pdb_list[i], ha='center')
 
+    fig.text(0.5, 0.04, axis_labels[0]+' / nm', ha='center')
+    fig.text(0.33, 0.90, 'FS1', ha='center')
+    fig.text(0.66, 0.90, 'FS2', ha='center')
+    fig.subplots_adjust(hspace=0.1, wspace=0.1)
     plt.show()
-    #fig.savefig('endtest'+str(i)+'.png')
+    fig.savefig('Figures/TEST_MULTIPLOT.png', dpi=300, bbox_inches='tight')
 
 
 fes_multiplot(pdb_list)
