@@ -60,7 +60,7 @@ def fes(filename, is_rew):
     # get number of bins and CV names from header
     if is_rew:
         nbins = int(breaks[0])
-        [x_name,y_name] = ['','']
+        [x_name,y_name] = ['RMSD to IN','RMSD to OUT']
     else: 
         nbins = int([l.split()[-1] for l in lines if "nbins_pp.proj" in l][0])
         [x_name, y_name] = lines[0].split()[2:4]

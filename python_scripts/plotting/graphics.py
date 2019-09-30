@@ -5,6 +5,7 @@
 """
 
 from math import ceil
+import re
 import numpy as np
 from numpy.polynomial import polynomial as P
 import pandas as pd
@@ -25,7 +26,7 @@ def hills_plot(hills_data, pdb, funnel_side, save_dir):
     plt.savefig('{}/{m}-{f}_Heights.png'\
             .format(save_dir, f=funnel_side, m=pdb), bbox_inches='tight', dpi=300)
 
-def diffusion_plots(colvar_data, pdb, funnel_side, num_cvs, save_dir):
+def single_diffusion_plots(colvar_data, pdb, funnel_side, num_cvs, save_dir):
     """ plots the diffusion plots for X cvs."""
     if num_cvs == 2:
         x_name = "X-axis"
@@ -61,26 +62,18 @@ def diffusion_plots(colvar_data, pdb, funnel_side, num_cvs, save_dir):
 def two_cv_contour(fes, pdb, funnel_side, axes, in_vmax, name, save_dir, ax):
     """ Plot a contour plot for 2 CVs"""
 
-    # NEED TO ADD THIS FUNCTIONALITY BACK IN!!!
-    #with open('./monitor/vmax.dat', 'a+') as f:
-    #   f.write('{} {} {}\r\n'.format(pdb, funnel_side, np.amax(fes[2])))
     fes[2] = fes[2]/4.184
     max_non_inf = np.amax(fes[2][np.isfinite(fes[2])])
     print('VMAX: ', max_non_inf)
     x_name, y_name = axes
     vmax = int(ceil(max_non_inf / 2.0)) * 2 if 'REW' in name else in_vmax
-    vmax = 50
+    #vmax = 50
 
     x, y = np.meshgrid(fes[0], fes[1])
 
     iso = round(2*max_non_inf/12)/2
 
-    old_method = False
-    if old_method:
-        fes[2] = fes[2]-np.amax(fes[2])
-        conts = np.arange(-vmax, 0.0, 1.0)
-    else:
-        conts = np.arange(0.0001, max_non_inf, iso)
+    conts = np.arange(0., vmax+1, 2.0)
 
     f_x = np.linspace(0.0, 4.5, 1000) # funnel lower & upper walls
     sc = 3.0
@@ -91,23 +84,21 @@ def two_cv_contour(fes, pdb, funnel_side, axes, in_vmax, name, save_dir, ax):
 
 #    ax = fig.add_subplot(plot_n, sharex=True, sharey=True)
     CS = ax.contourf(x, y, fes[2], conts, cmap='RdYlBu', antialiased=True)
-    ax.contour(x, y, fes[2], conts, colors='k', linewidths=0.5, alpha=0.5, antialiased=True)
-    #ax.colorbar(CS,format='%.1f',use_gridspec=True, label='Free Energy Surface / kcal/pdb')
+    ax.contour(x, y, fes[2], conts, colors='k', linewidths=0.5, alpha=0.5,
+               antialiased=True)
     if 'REW' not in name:
         ax.plot(f_x, f_y, 'k')
-        #ax.set_xlim(-0.2, 5.0)
-        #ax.set_ylim(-0.1, 2.0)
+        ax.set_xlim(-0.2, 5.0)
+        ax.set_ylim(-0.1, 2.0)
         #ax.set_title('{m}  |  {}'.format(funnel_side, m=pdb))
     else:
-        plt.xlim(-0.2, 5.0)
-        plt.ylim(-0.1, 2.0)
+        print('?')
+        #plt.xlim(-0.2, 5.0)
+        #plt.ylim(-0.1, 2.0)
+        ax.set_ylabel(y_name+' / nm')
         #ax.title('{m}  |  {}  |  Reweighted Free Energy Surface'.format(funnel_side, m=pdb))
     ax.grid()
-    #ax.set_xlabel(x_name+' / nm')
-    #ax.set_ylabel(y_name+' / nm')
-    #ax.savefig('{}/{m}-{f}_{}.png'\
-     #       .format(save_dir, name, f=funnel_side, m=pdb), bbox_inches='tight', dpi=300)
-
+    return CS
 
 def make_ax(fig, n):
     """ Add axis (for multiplot) """
@@ -141,7 +132,7 @@ def ddg_scatter(csv, mode):
     line3 = P.polyfit(x=pd.concat([ddg['weight'], ddg['weight']]),
                       y=pd.concat([ddg['fs1'], ddg['fs2']]), deg=1)
     f3 = P.Polynomial(line3)
-    x = np.linspace(150, 550, 50) 
+    x = np.linspace(150, 550, 50)
     plt.hlines(y=0, xmin=150, xmax=550, colors='xkcd:green', linewidth=2.5)
 
     if mode == 1:
@@ -150,9 +141,9 @@ def ddg_scatter(csv, mode):
         plt.errorbar(x='weight', y='fs1', yerr=2.0, data=ddg,
                      fmt='o', capsize=5, c=colours[0], label='FS1')
     if mode == 2:
-        plt.scatter(x='weight', y='fs2', data=ddg, 
+        plt.scatter(x='weight', y='fs2', data=ddg,
                     marker='D', s=6, c=colours[2], label='FS2', zorder=2)
-        plt.scatter(x='weight', y='fs1', data=ddg, 
+        plt.scatter(x='weight', y='fs1', data=ddg,
                     marker='D', s=6, c=colours[0], label='FS1', zorder=3)
         plt.axhspan(-2, 2, facecolor='xkcd:green', alpha=0.2, zorder=1)
 
@@ -167,3 +158,58 @@ def ddg_scatter(csv, mode):
     plt.legend()
     plt.savefig(csv.split('.')[0]+str(mode)+'_scatter.png',
                 dpi=300, transparent=True)
+
+def convergence(fes_dir, ts_list, ax):
+    """ Plot convergence of cv """
+    lin_cols = ['xkcd:light red', 'xkcd:light orange', 'xkcd:light green',
+                'xkcd:light cyan', 'xkcd:ocean blue']
+    init_file = '{}/fes_{}.dat'.format(fes_dir, int(ts_list[0]/10))
+    conv_data = pd.concat([df[df.cv != "#!"] for df in \
+                          pd.read_csv(init_file, delim_whitespace=True,
+                                      names=['cv', str(ts_list[0])], skiprows=5,
+                                      chunksize=1000)])
+    for timestamp in ts_list[1:]:
+        fes_file = '{}/fes_{}.dat'.format(fes_dir, int(timestamp/10))
+        fes_data = pd.concat([df[df.cv != "#!"] for df in \
+                             pd.read_csv(fes_file, delim_whitespace=True,
+                                         names=['cv', str(timestamp)],
+                                         skiprows=5, chunksize=1000)])
+        conv_data = pd.merge(conv_data, fes_data, on='cv')
+    for i in np.arange(len(ts_list)):
+        ax.plot(conv_data['cv'], [y/4.184 for y in conv_data[str(ts_list[i])]],
+                c=lin_cols[i], label=str(ts_list[i])+' ns')
+
+    nm = re.split('/|_', fes_dir)
+    rew_file = '{p}_{f}/{p}-{f}_{c}.fes'.format(p=nm[0], f=nm[1], c=nm[-1])
+    rew_data = pd.read_csv(rew_file, delim_whitespace=True, names=['rx', 'ry'])
+    ax.plot(rew_data['rx'], [y/4.184 for y in rew_data['ry']], 'k')
+    if 'proj' in fes_dir:
+        ax.set_xlim([-0.3, 5.0])
+        ax.set_xticks(np.arange(6))
+    else:
+        ax.set_xlim([-0.1, 1.7])
+        ax.set_xticks(np.linspace(0., 1.5, num=4))
+    ax.set_ylim([0, 20.])
+    ax.grid(alpha=0.5)
+
+
+def diffusion(colv_data, cv, ax, lin_col):
+    """ Plot diffusion of CV """
+    colv_data['pp.'+cv] = colv_data['pp.'+cv].astype(float)
+    colv_data['mean'] = colv_data['pp.'+cv].rolling(5000, center=True).mean()
+    y1 = colv_data['pp.'+cv].values
+    y2 = colv_data['mean'].values
+    x = np.arange(len(y1))*0.002
+    ax.plot(x, y1, c=lin_col, alpha=0.3, lw=0.5)
+    ax.plot(x, y2, c='k', alpha=1., lw=1.)
+    if cv == 'proj':
+        ax.set_ylim([-0.3, 5.0])
+        ax.set_yticks(np.arange(6))
+        ax.axhline(y=3.5, xmax=500., c='k', alpha=0.5, lw=1., ls='--')
+        ax.axhline(y=0.5, xmax=500., c='k', alpha=0.5, lw=1., ls='--')
+    else:
+        ax.set_ylim([-0.1, 1.7])
+        ax.set_yticks(np.linspace(0., 1.5, num=4))
+    ax.set_xlim([0, 500.])
+    ax.set_xticks(np.linspace(0., 500., num=6))
+    ax.grid(alpha=0.3)
