@@ -1,0 +1,935 @@
+#!/usr/bin/env python
+import matplotlib
+matplotlib.use('TkAgg')
+
+import sys, os, re
+import math
+from numpy import *
+from pylab import *
+from scipy import *
+from Tkinter import *
+import ttk
+import matplotlib.font_manager
+import matplotlib.pyplot as plt
+from matplotlib import text, patheffects
+from matplotlib.delaunay import *
+
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
+from matplotlib.figure import Figure
+
+if sys.version_info[0] < 3:
+    import Tkinter as Tk
+else:
+    import tkinter as Tk
+
+def destroy(e): sys.exit()
+
+import tkSimpleDialog
+import tkMessageBox
+from tkFileDialog import askopenfilename
+
+import argparse
+parser = argparse.ArgumentParser(description="Plot 2D Free Energy",
+		formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=35))
+parser.add_argument("fes",help="name of the fes file", default="fes.dat", nargs='*')
+parser.add_argument("-lim", nargs=4, type=float, help="x/y range", metavar="N")
+parser.add_argument("-l","--label", help="iso-lines labels", action='store_true')
+parser.add_argument("-i","--iso", help="iso-lines interval", type=float)
+parser.add_argument("-k","--kcal", help="fes is in kcal", action='store_true')
+parser.add_argument("-g","--grid", nargs=2, type=int, help="x/y grid")
+parser.add_argument("-t","--title", help="title", type=str)
+parser.add_argument("-x","--xlab", help="x label", type=str)
+parser.add_argument("-y","--ylab", help="y label", type=str)
+parser.add_argument("-a","--aspect", help="use X:Y aspect", type=str, nargs='?', const='18.5:10.5')
+parser.add_argument("-c","--compact", help="compact layout", action='store_true')
+parser.add_argument("-ns","--ns", help="fes interval in ns", type=float)
+parser.add_argument("-s","--summary", help="plot last 9 fes", action='store_true')
+parser.add_argument("-ma","--matrix", help="use Cols:Rows matrix", type=str, nargs='?')
+parser.add_argument("-o","--out", help="PDF name for output", type=str, default="out.pdf")
+parser.add_argument("-m","--maxf", help="max iso for fes plot", type=float)
+parser.add_argument("-f","--forcemax", help="force max for fes", type=float)
+############################################################################################
+parser.add_argument("-A", nargs=4, type=float, help="x and y ranges for min A")
+parser.add_argument("-B", nargs=4, type=float, help="x and y ranges for min B")
+parser.add_argument("-TS", nargs=4, type=float, help="x and y ranges for min TS")
+parser.add_argument("--box", help="plot basins boxes", action='store_true')
+parser.add_argument("--scale", help="scale factor for axes", type=float, metavar="S", nargs=2)
+parser.add_argument("-di","--interface", help="Start Driver Interface", action='store_true')
+
+#args = parser.parse_args()
+
+if os.path.exists("_conf_"):
+	import ConfigParser
+	config = ConfigParser.SafeConfigParser()
+        print"=" * (30)
+	#print "=" * 30	
+	print "Reading Defaults from configuration file [_conf_]"
+	config.read(["_conf_"])
+	defaults = dict(config.items("Default"))
+
+	for key in defaults:
+		print "Read %s for %s (defaults[%s])" %(defaults[key],key,key)
+		deflist = defaults[key].split(",")
+		if len(deflist) > 1:
+			defaults[key] = defaults[key].split(",")
+		
+
+	parser.set_defaults(**defaults)
+
+
+args = parser.parse_args()
+
+
+#####################################################
+matplotlib.font_manager.findSystemFonts(fontpaths=None, fontext='ttf')
+rcParams.update({'font.family': 'DejaVu Sans'})
+rcParams.update({'font.size': 18})
+#to force a font:
+#path = '/usr/share/fonts/truetype/google-fonts/Cantarell-Regular.ttf'
+#prop = matplotlib.font_manager.FontProperties(fname=path)
+#rcParams['font.family'] = prop.get_name()
+
+def fes_connect(fig):
+        cid = fig.canvas.mpl_connect('button_press_event', onclick)
+
+def main():
+
+	colormap = plt.cm.RdYlBu
+	draw_grid = True
+
+        if isinstance(args.fes, basestring):
+		if args.summary:
+			import glob
+			inpfes = glob.glob('fes*')
+		else: inpfes = [ args.fes ]
+
+        else:
+                inpfes = args.fes
+
+	nnn = 0
+
+	def stringSplitByNumbers(x):
+	    r = re.compile('(\d+)')
+	    l = r.split(x)
+	    return [int(y) if y.isdigit() else y for y in l]
+
+	inpfes = sorted(inpfes, key = stringSplitByNumbers)
+        if args.summary:
+                inpfes = inpfes[-9:]
+
+	print "Files: %s" % inpfes
+
+
+	(rows,cols,width,height) = setup_figure(inpfes)
+	
+	fig = plt.figure(figsize =(width,height), dpi=60)
+	xcoord = []
+	ycoord = []
+	zcoord = []
+
+	for FE in inpfes:
+
+		nnn = nnn +1
+		data = loadtxt(FE);
+		x = data[:,0]; y = data[:,1]; z = data[:,2];
+
+		if args.grid:
+			xgrid = args.grid[0]
+			ygrid = args.grid[1]
+		else:
+			import subprocess
+
+			cmd="awk '!/#/{ RS=\"\"; FS=\"\\n\"}END{print NF}' %s " % FE
+			xgrid = int(subprocess.check_output(cmd, shell=True))
+			cmd="awk '!/#/{ RS=\"\"; FS=\"\\n\"}END{print NR}' %s " % FE
+                        ygrid = int(subprocess.check_output(cmd, shell=True))
+			if (xgrid > 600 or ygrid > 600):
+			#failsafe
+				xgrid = int(sqrt(len(x))-1)
+				ygrid = int(sqrt(len(y))-1)
+
+		
+		print "dim = %.1f x %.1f  " % (xgrid,ygrid) #,len(x),len(y)) 
+
+		if not args.kcal:
+			print "FES is in kJ/mol, converting to kcal/mol",
+			z = map(lambda a: a/4.1876,z)
+		else:
+			print "FES is already in kcal/mol",
+
+		if args.scale:
+			x = map(lambda a: a*args.scale[0],x)
+			y = map(lambda a: a*args.scale[1],y)
+		#####################################################
+		# shifts all the F values so that minimum is 0 (and they are all positives)
+		minz = min(z)
+		z = map(lambda a: a - minz,z )
+
+		maxz = 0
+		for ndx, v in enumerate(z):
+			if (isfinite(z[ndx])):
+				if z[ndx] > maxz: 
+					maxz = z[ndx]
+
+		for ndx, v in enumerate(z):
+			if (isinf(z[ndx])):
+				z[ndx] = maxz #*1.5
+
+		if args.forcemax:
+			for ndx, v in enumerate(z):
+				if z[ndx] > maxz*0.98:
+					 z[ndx] = args.forcemax
+
+		#export xyz 
+		xcoord.append(x[:])
+		ycoord.append(y[:])
+		zcoord.append(z[:])
+
+
+		print "max G = %.2f " % maxz,
+		maxi = max(z)
+		print "[ real max = %.2f ]" % maxi
+		print "-" * 80
+		if args.lim:
+			xi = np.linspace(float(args.lim[0]),float(args.lim[1]), xgrid)
+			yi = np.linspace(float(args.lim[2]),float(args.lim[3]), ygrid)
+		else:
+			xi = np.linspace(min(x),max(x), xgrid)
+			yi = np.linspace(min(y),max(y), ygrid)
+
+		zi = griddata(x,y,z,xi,yi) #genero la griglia (interpola se necessario)
+
+		#######################################################
+		if nnn == 1:
+			aaxx = fig.add_subplot(rows,cols,nnn)
+			if args.compact:
+				aaxx.yaxis.tick_right()
+				aaxx.yaxis.set_label_position("right")
+		else:
+			aazz = fig.add_subplot(rows,cols,nnn) #,sharex=aaxx,sharey=aaxx)
+			if args.compact:
+				aazz.yaxis.tick_right()
+				aazz.yaxis.set_label_position("right")
+
+		if args.iso:
+			iso = args.iso
+		else:
+			if args.maxf:
+				iso = round(2*args.maxf/12)/2
+			else:
+				iso = round(2*max(z)/12)/2
+
+		if args.maxf: levels = arange(0.001,int(args.maxf)+1,iso)
+		else: levels = arange(0.001,max(z),iso)
+
+		#CS = imshow(zi, cmap=colormap) 
+		CS  = plt.contourf(xi,yi,zi,levels, cmap=colormap, antialiased=True)
+		CSL = plt.contour(xi,yi,zi,levels, colors= 'k', linewidths=0.5, antialiased=True)
+
+		if args.label:
+			#clabel(CSL,inline=False,use_clabeltext=True,fontsize=26, fmt='%.1f')
+			clabel(CSL,fontsize=12, fmt='%.1f', rightside_up=True,use_clabeltext=True)
+		if not args.compact:
+			cb = plt.colorbar(CS,format='%.1f',use_gridspec=True)
+			cb.set_label(r'Free Energy')
+
+		# plot grid
+		if draw_grid: plt.grid()
+
+		# axis labels and title
+		if args.title: 
+			plt.title(args.title)
+			if (args.compact):
+                                plt.title(args.title, x=0.7, y=0.9)
+		else:
+			fetitle = FE
+			if args.ns and 'fes' in FE:
+				ns = stringSplitByNumbers(FE)
+				for nsi in ns:
+					if isinstance(nsi, int):
+						nsnum = int(nsi*args.ns)
+						fetitle = "%d ns" % nsnum
+			if (args.compact):	
+				plt.title(fetitle, x=0.7, y=0.9)
+			else:
+				plt.title(fetitle)
+
+		if args.xlab: plt.xlabel(args.xlab,labelpad=10)
+		else: plt.xlabel("CV1",labelpad=10)
+
+
+		if args.ylab: plt.ylabel(args.ylab,labelpad=10)
+                else: plt.ylabel("CV2",labelpad=10)
+
+
+		if args.lim:
+			for index, item in enumerate(args.lim):
+				args.lim[index] = float(item)
+			axis(args.lim)
+
+		if args.A and args.B:
+			dg = delta_g(x,y,z)
+			#t = plt.text(5, 5, "DG = %6.2f" % (dg), fontdict=None)
+			if args.title:
+				plt.title("%s (DG = %6.2f kcal/mol)" % (args.title,dg))
+			else:
+				plt.title("DG = %6.2f kcal/mol" % (dg))
+			plot_basin()
+
+	fes_connect(fig)
+	#fig.tight_layout()
+
+	if (args.compact):
+		fig.subplots_adjust(wspace=0,hspace=0)
+		fig.subplots_adjust(right=0.85,left=0.035, top=0.95,  bottom=0.05)
+		#fig.subplots_adjust(left=0.025)
+		cbar_ax = fig.add_axes([0.91, 0.15, 0.025, 0.70])
+		cb = fig.colorbar(CS, cax=cbar_ax,format='%.1f',use_gridspec=True)
+                cb.set_label(r'Free Energy')
+	else:
+		fig.subplots_adjust(right=0.92, left=0.08, top=0.95,  bottom=0.05)
+	return {'fig':fig, 'x':xcoord, 'y':ycoord ,'z':zcoord, 'r':rows, 'c':cols }
+
+
+
+
+##########################################Save Figure################################################
+def save_figure():
+	if args.aspect:
+		aspecto = args.aspect
+		print "aspect %s" % aspecto
+		aspect = aspecto.split(':')
+
+		print "aspect %3f:%3f" % (float(aspect[0]),float(aspect[1]))
+		fig.set_size_inches(aspect[0],aspect[1])
+
+	#fig = matplotlib.pyplot.gcf()
+	plt.savefig(args.out, dpi=600,bbox_inches='tight',pad_inches = 0)
+#####################################################################################################
+#prepare 3xZ matrix of FEs
+def setup_figure(inpfes):
+        if len(inpfes) < 3:
+                cols = len(inpfes)
+                rows = 1
+        elif len(inpfes) == 4:
+                cols = 2
+                rows = 2
+        else:
+                cols = 3
+                rows = math.ceil(len(inpfes)/3.0)
+
+        if args.matrix:
+                colrow = args.matrix.split(':')
+                cols = float(colrow[0])
+                rows = float(colrow[1])
+
+        width = 9*cols
+        height = 9*rows
+
+        if (width > 22):
+                width = 22
+        if (height > 15):
+                height = 15
+
+        print "=" * 60
+        print "%d files on %d rows vs %d cols  [figure %d x %d]" % (len(inpfes),rows,cols,width,height)
+        print "=" * 60
+
+        return (rows,cols,width,height)
+#####################################################################################################
+def get_g_value(gx,gy,sub):
+
+	xy_save = 1000000; get_x = 0; get_y = 0; get_g = 0;
+
+	for gii in range(len(x[sub])):
+		xy_sim = abs(gx-x[sub][gii])/100 + abs(gy-y[sub][gii])/100
+
+		if xy_sim < xy_save:
+			get_x = x[sub][gii]
+			get_y = y[sub][gii]
+			get_g = z[sub][gii]
+			xy_save = xy_sim
+
+	print "Closest point is {%.3f, %.3f} with G = %.3f" % (get_x,get_y,get_g)
+	return get_g
+		
+		
+
+################################################################################################
+def basin_fill(basin_list):
+        fill([basin_list[0],basin_list[1],basin_list[1],basin_list[0]], [basin_list[2],basin_list[2],
+                basin_list[3],basin_list[3]], 'k', alpha=0.25, edgecolor='k', facecolor="none", lw="5.")
+
+def basin_fill_ax(basin_list, ax):
+        #print "boxes present: %d " % len(ax.patches)
+	if len(ax.patches) > 1:
+		del ax.patches[:]
+		del ax.texts[:]
+	ax.fill([basin_list[0],basin_list[1],basin_list[1],basin_list[0]], [basin_list[2],basin_list[2],
+                basin_list[3],basin_list[3]], 'k', alpha=0.25, edgecolor='k', facecolor="none", lw="5.")
+
+
+	if (len(ax.patches) == 2):
+		basinlabel = "B "
+	else:
+		basinlabel = "A"
+	
+	
+	#ax.text(basin_list[1]-basin_list[1]*0.01,basin_list[2]-basin_list[2]*0.01, basinlabel, fontsize=35, path_effects=[patheffects.withStroke(linewidth=3, foreground='w')])
+        ax.annotate(basinlabel,xy = (basin_list[1],basin_list[2]),
+                        xytext=(-2,2),fontsize=30,
+                        textcoords='offset points', ha='center', va='bottom',
+                        bbox=dict(boxstyle='round4, pad=0.55, rounding_size=0.31', fc='white', alpha=0.5))
+
+	
+#####################################################################################################
+def plot_basin():
+	if args.box:
+		if args.A:
+                	basin_fill(args.A)
+        	if args.B:
+                	basin_fill(args.B)
+        	if args.TS:
+                	basin_fill(args.TS)
+
+#####################################################################################################
+def basin(value_x,value_y,lis):
+        if ((value_x > lis[0]) and (value_x < lis[1])):
+                if ((value_y > lis[2]) and (value_y < lis[3])):
+                        return 1
+        return 0
+
+#####################################################################################################
+def delta_g(a,b,c):
+        g_a = []
+        g_b = []
+	g_ts = []
+        for i in range(len(a)):
+                if (basin(a[i],b[i],args.A)):
+                        g_a.append( c[i] )
+                if (basin(a[i],b[i],args.B)):
+                        g_b.append( c[i] )
+		if args.TS:
+			if (basin(a[i],b[i],args.TS)):
+				g_ts.append( c[i] )
+	#if args.hist:
+	#
+	#	(n, bins, patches) = hist(g_ts)
+	#	show()
+        dg = min(g_b) - min(g_a)
+        print "DG_AB = %6.2f kcal/mol" % (dg)
+	#return dg
+	
+	if args.TS:
+		ts = max(g_ts)
+		ts_min = min(g_ts)
+		ts_top = []
+		ts_scaled = []
+		N = int(len(g_ts)/2)
+		for ii in range(N):
+			ts_top.append(g_ts[ii])
+		for iii in range(len(g_ts)):
+			if (g_ts[iii] < args.norm):
+				ts_scaled.append(g_ts[iii])
+
+		g_ts_avg = sum(g_ts) / float(len(g_ts))
+		g_ts_top = sum(ts_top) / float(len(ts_top))
+		g_ts_norm = sum(ts_scaled) / float(len(ts_scaled))
+		print "  DG* = %6.2f kcal/mol (min: %6.2f) (avg: %6.2f) (top: %6.2f) (norm: %6.2f)" % \
+				(ts, ts_min, g_ts_avg, g_ts_top, g_ts_norm)
+
+	print "=" * 80
+	return dg
+
+#############################################################################################
+##################################### EXP #######################################
+
+def order_coord(unsort):
+        #box lists coordinates as points: [x1,y1] , [x2,y2] , etc...
+        #we need x and y ranges in args.A and args.B: x1-x2, y1-y2
+
+        if unsort[0] > unsort[2]:
+                unsort[0], unsort[2] = unsort[2],unsort[0]
+
+        if unsort[1] > unsort[3]:
+                unsort[1], unsort[3] = unsort[3],unsort[1]
+
+        sort = [unsort[0],unsort[2],unsort[1],unsort[3]]
+        return sort
+
+##############################################################################################
+
+def order_coord_multi(unsort):
+	for i in range(0,len(unsort),4):
+
+		j = i+2
+		m = i+1
+		n = i+3
+
+	        if unsort[i] > unsort[j]:
+        	        unsort[i], unsort[j] = unsort[j],unsort[i]
+
+	        if unsort[m] > unsort[n]:
+        	        unsort[m], unsort[n] = unsort[n],unsort[m]
+
+		unsort[m],unsort[j] = unsort[j],unsort[m]
+	
+	return unsort
+
+#####################################################################################################
+
+def onclick(event):
+
+	extract['ax'] = event.inaxes
+	extract['sub'] = get_sub(extract['ax'])
+
+    	if event.button == 1 and event.key == None:
+	    if len(box) == 8:
+		#for i in len(box):
+		#box[i]
+		del box[:]
+		#print "len of box reset to %d" % len(box)
+		print "DG reset... "
+	    box.extend([event.xdata, event.ydata])
+	    #print 'x = %f, y = %f [%d points] '%(event.xdata, event.ydata, len(box))
+
+	    ax = event.inaxes
+	    ss = get_sub(ax)
+		
+
+	    #print "subplot is %d" % int(ss+1)
+	    subplot(r,c,ss+1)
+	    if len(box) == 4:
+		args.A = order_coord(box) #[box[0],box[2],box[1],box[3]] 
+		basin_fill_ax(args.A,ax)
+		print "Basin A: ",
+		print "  ".join("%.3f" % i for i in args.A)
+		
+		canvas.draw()
+	    
+	    if len(box) == 8:
+		args.B = order_coord(box[4:8])
+		basin_fill_ax(args.B,ax)
+		print "Basin B: ",
+		print "  ".join("%.3f" % i for i in args.B)
+
+		canvas.draw()
+		
+		dg = delta_g(x[ss],y[ss],z[ss])
+		title(r'$\Delta G^{A\rightarrow B}$ = %5.2f kcal/mol' % (dg))
+		
+		canvas.draw()
+
+	if event.button == 3: #and event.key != None:
+
+		ax = event.inaxes
+		ss = get_sub(ax)
+
+		minima_list = [ "%s " % chr(i) for i in xrange(ord("A"), ord("Z")+1) ]
+		minima_list.extend([ "%s " % chr(i) for i in xrange(ord("a"), ord("z")+1) ])		
+
+		minima[ss].append([event.xdata])
+		minima_y[ss].append([event.ydata])
+
+		if len(minima[ss]) > len(minima_list)-5:
+			minima_list.extend([ "%s " % chr(i) for i in xrange(ord("A"), ord("Z")+1) ])
+		current = minima_list[len(minima[ss])-1]		
+
+		xm = min(x[ss]); ym = min(y[ss]);
+		xr = (max(x[ss])-min(x[ss]))
+		yr = (max(y[ss])-min(y[ss]))
+
+		if (event.xdata > xm+xr/2):
+			xshift = 40
+		else:
+			xshift = -40
+
+                if (event.ydata > ym+yr/2):
+			yshift = 40
+                else:
+                        yshift = -60
+
+		if (event.xdata > xm+xr*0.85 or event.xdata < xm+xr*0.15):
+			xshift = -xshift
+		if (event.ydata > ym+yr*0.85 or event.ydata < ym+yr*0.15):
+			yshift = -yshift
+
+		ax = event.inaxes
+	
+		#if event.key == 'shift':	
+		if event.key == None:
+		        ax.annotate(current,xy = (event.xdata, event.ydata),
+                	xytext=(xshift,yshift),fontsize=30,
+	                textcoords='offset points', ha='center', va='bottom',
+                        bbox=dict(boxstyle='round4, pad=0.55, rounding_size=0.31', fc='white', alpha=0.5),
+			arrowprops=dict(arrowstyle="->",mutation_scale=16, lw=3,
+                                connectionstyle="arc3,rad=0.3"))
+		else:
+			del ax.lines[:]
+			ax.plot(minima[ss],minima_y[ss], "ro--")
+			print "%.3f %.3f %s" % (event.xdata, event.ydata, current), 
+			get_g_value(event.xdata, event.ydata, ss)
+			
+			
+		canvas.draw()
+		#use_interface()
+	
+	if event.button == 2: # and event.key == None:
+		
+		ax = event.inaxes
+		ss = get_sub(ax)
+		del ax.texts[:]	
+		del ax.patches[:]
+		del ax.lines[:]
+		del minima[ss][:]
+		del minima_y[ss][:]
+		if len(box): del box[:]
+		if len(minbox): del minbox[:]
+		if args.A: args.A = []
+		if args.B: args.B = []
+		
+		canvas.draw()
+
+	if event.button == 1 and event.key == 'shift':
+
+		minbox.extend([event.xdata, event.ydata])
+
+		ax = event.inaxes
+		ss = get_sub(ax)
+
+		subplot(r,c,ss+1)
+		
+		if len(minbox) % 4 == 0:
+		    thisbox = order_coord(minbox[-4:])
+		    #basin_fill_ax(thisbox,ax)
+		    ax.fill([thisbox[0],thisbox[1],thisbox[1],thisbox[0]], [thisbox[2],thisbox[2],thisbox[3],thisbox[3]], 'k', alpha=0.25, edgecolor='k', facecolor="none", lw="15.")
+		    print "New basin: ",
+		    print "  ".join("%.3f" % i for i in thisbox)
+		    minbox[-2],minbox[-3] =  minbox[-3],minbox[-2]
+		    if minbox[-4] > minbox[-3]:
+			minbox[-4],minbox[-3] =  minbox[-3],minbox[-4]
+                    if minbox[-2] > minbox[-1]:
+                        minbox[-2],minbox[-1] =  minbox[-1],minbox[-2]
+
+
+		    canvas.draw()
+		
+
+
+
+#cid = fig.canvas.mpl_connect('button_press_event', onclick)
+#####################################################################################################
+def get_sub(ax):
+	#get the progressive number to access correct x,y,z
+        n = 0
+        for i in fig.axes:
+                n = n+1
+                if i == ax:
+			if args.compact: sub = int(n-1)
+                        else: sub = int(n/2)	#colorbar counts as subplot!!
+	return sub
+
+#####################################################################################################
+def basin_stat(x,y,G,coord):
+        fe_basin = []
+        for i in range(len(x)):
+                if (basin(x[i],y[i],coord)):
+                        fe_basin.append( G[i] )
+
+        _max = max(fe_basin)
+        _min = min(fe_basin)
+        N = int(len(fe_basin)/2)
+        #gg = sorted(fe_basin, reverse=True)
+
+        g_avg = sum(fe_basin) / float(len(fe_basin))
+        g_top = 0
+
+	for gg in fe_basin:
+		g_top = g_top + exp(-gg)		#assume beta = 1
+		
+        canvas.draw()
+        print " [ G = %6.2f kcal/mol (min) (max: %6.2f) (avg: %6.2f) (exp.sum: %6.2f) ] " % (_min, _max, g_avg, g_top)
+
+	return g_top
+
+
+	
+##################################### EXP #######################################
+
+def get_text_positions(x_data, y_data, txt_width, txt_height):
+    a = zip(y_data, x_data)
+    text_positions = y_data[:] #.copy()
+    for index, (y, x) in enumerate(a):
+        local_text_positions = [i for i in a if i[0] > (y - txt_height) 
+                            and (abs(i[1] - x) < txt_width * 2) and i != (y,x)]
+        if local_text_positions:
+            sorted_ltp = sorted(local_text_positions)
+            if abs(sorted_ltp[0][0] - y) < txt_height: #True == collision
+                differ = np.diff(sorted_ltp, axis=0)
+                a[index] = (sorted_ltp[-1][0] + txt_height, a[index][1])
+                text_positions[index] = sorted_ltp[-1][0] + txt_height
+                for k, (j, m) in enumerate(differ):
+                    #j is the vertical distance between words
+                    if j > txt_height * 2: #if True then room to fit a word in
+                        a[index] = (sorted_ltp[k][0] + txt_height, a[index][1])
+                        text_positions[index] = sorted_ltp[k][0] + txt_height
+                        break
+    return text_positions
+#######################################################################################
+def update(event=None):
+	try: 
+		bound = [ args.A[i] for i in arange(len(args.A)) ]
+	except: 
+		try:
+			bound = [ minbox[i] for i in arange(len(minbox)) ]
+		except:
+			bound = [ 0 for i in arange(4) ]
+	
+        if not os.path.isfile(extract['xtc']):
+                b1.configure(fg='red')
+        if not os.path.isfile(extract['gro']):
+                b2.configure(fg='red')
+        if not os.path.isfile(extract['data']):
+                b3.configure(fg='red')
+	
+	extract['cmd'] =  "pyextra.fes %s %s -d %s --cv %s" % (extract['gro'],extract['xtc'],extract['data'], " ".join("%.3f" % i for i in bound)) 
+	com.delete('1.0', '2.0')
+	com.insert('1.0',extract['cmd'])
+
+def load_file(ext,obj):
+	name = ext.upper()
+
+	if ext == "data":
+        	filename = askopenfilename(filetypes=[("Data files", "*")])
+	elif ext == "gro":
+		filename = askopenfilename(filetypes=[("PDB files", "*.pdb"),("GRO files", "*.gro")])
+	elif ext == "xtc":
+		filename = askopenfilename(filetypes=[("XTC files", "*.xtc"),("TRR files", "*.trr")])
+	else:
+        	filename = askopenfilename(filetypes=[("%s files" %name, "*.%s" %ext)])
+
+	print "trying %s set to %s" % (ext,filename)
+	extract[ext] = os.path.basename(filename)
+	print "extract %s set to %s" % (ext,extract[ext])
+	obj.delete(0, END)
+	obj.insert(0, extract[ext])
+	
+def default_is_on():
+        print "~~ Default Settings ~~"
+        extract['xtc'] = "traj.xtc"
+        b1.delete(0, END)
+        b1.insert(0,extract['xtc'])
+
+        extract['gro'] = "out_mol.gro"
+        b2.delete(0, END)
+        b2.insert(0,extract['gro'])
+
+        extract['data'] = "COLVAR"
+        b3.delete(0, END)
+        b3.insert(0,extract['data'])
+	update()
+
+def get_outname():
+	extract['out'] = tkSimpleDialog.askstring('Output', 'Name for the output PDB file?') 
+
+def run_driver():
+
+        import tkMessageBox
+
+        if (extract['xtc'] != None and extract['gro'] != None and extract['data'] != None):
+                print "Will run: \n%s" % extract['cmd']
+		if tkMessageBox.askyesno("Default", "Run '%s' " % extract['cmd']):
+	        	os.system(extract['cmd'])
+
+
+
+def run_driver_old():
+
+	import tkMessageBox
+	
+        if (extract['xtc'] != None and extract['gro'] != None and extract['data'] != None):
+		print "Will run: \n%s" % extract['cmd']
+		try: 
+			args.A[0]
+		except:
+			print '**Basin not defined**'                   
+			for qq in range(len(fig.axes)):
+				try:
+					len(minima[qq])
+				except:
+					pass
+				else:
+					if len(minima[qq]) > 0:
+						print "Using %d Annotated Minima from FES %d " % (len(minima[qq]),qq+1)
+						c1r = 0.05*abs(max(x[extract['sub']])-min(x[extract['sub']]))
+						c2r = 0.05*abs(max(y[extract['sub']])-min(y[extract['sub']]))
+						cmd_extract = "pyextra.fes %s %s -d %s -cv " % (extract['gro'],extract['xtc'],extract['data']) 
+						for xxmm in range(len(minima[qq])):
+							bound = [0,0,0,0]
+							bound[0] = (minima[qq][xxmm][0]-c1r)
+							bound[1] = (minima[qq][xxmm][0]+c1r)
+							bound[2] = (minima_y[qq][xxmm][0]-c2r)
+							bound[3] = (minima_y[qq][xxmm][0]+c2r)
+							extract['ax'].fill([bound[0],bound[1],bound[1],bound[0]], [bound[2],bound[2],bound[3],bound[3]], 'k', alpha=0.25, edgecolor='k', facecolor="none", lw="5.")
+							canvas.draw()
+							bound[0] = bound[0]
+                                                        bound[1] = bound[1]
+                                                        bound[2] = bound[2]
+                                                        bound[3] = bound[3]
+
+							cmd_extract = cmd_extract + " " + " ".join("%.3f" % i for i in bound)
+						        com.delete('1.0', '2.0')
+						        com.insert('1.0',cmd_extract)
+	
+	      						print "This will run: %s" % cmd_extract	
+						if tkMessageBox.askyesno("Default", "Run '%s' " % cmd_extract):
+							os.system(cmd_extract)
+		else:	
+			try:
+				args.B[0]
+			except:
+				if tkMessageBox.askyesno("Default", "Run '%s' " % extract['cmd']):
+					safe_backup("basin_1.pdb")
+                	                os.system(extract['cmd'])
+					if extract['out'] != None:
+						os.system("mv basin_1.pdb %s" % extract['out'])
+			else:
+		                bound = [ args.B[i]*0 for i in arange(len(args.B)) ]
+		                bound[0] = args.B[0]
+                		bound[1] = args.B[1]
+		                bound[2] = args.B[2]
+		                bound[3] = args.B[3]
+				
+				extract['cmd'] = extract['cmd'] + " " + " ".join("%.3f" % i for i in bound)
+				newcommand = re.sub('basins\s1', 'basins 2', extract['cmd'])
+				
+				print "Warning!! Will run: \n%s" % newcommand
+				if tkMessageBox.askyesno("Default", "Run '%s' " % newcommand):
+                                        safe_backup("basin_1.pdb")
+					safe_backup("basin_2.pdb")
+                                        os.system(newcommand)
+				
+	else:
+		print '**Files not defined**'
+
+def safe_backup(filename):
+	count = 0
+	new_name = None
+	if os.path.exists(filename):
+		while True:
+			new_name = "%s.bak.%s" % (filename, count)
+			if os.path.exists(new_name):
+				count += 1
+				continue
+			else:
+				os.system("mv %s %s" % (filename, new_name))
+				print "Backed-up %s as %s" % (filename, new_name)
+				break
+
+def switch():
+	
+	args.interface = "yes"
+	root.destroy()
+	root.quit()
+
+def alt_save_figure(event=None):
+        if args.aspect:
+                aspecto = args.aspect
+                print "aspect %s" % aspecto
+                aspect = aspecto.split(':')
+
+                print "aspect %3f:%3f" % (float(aspect[0]),float(aspect[1]))
+                fig.set_size_inches(aspect[0],aspect[1])
+
+        #fig = matplotlib.pyplot.gcf()
+	myout = com.get()
+	print "saving figure to < %s >" % myout	
+        plt.savefig(myout, dpi=600)
+
+
+##################################### EXP #######################################
+
+box = []
+minbox = []
+
+fes = main()
+x = fes['x']
+y = fes['y']
+z = fes['z']
+r = fes['r']
+c = fes['c']
+
+fig = fes['fig']
+nnn = int(len(fig.axes)/2)
+minima = [[] for i in range(nnn)]
+minima_y = [[] for i in range(nnn)]
+
+extract = {'xtc': None, 'gro': None, 'data': None, 'cmd': None, 'out': None}
+
+args.interface='yes'
+
+while True:
+	if args.interface:
+
+		import tkFont
+
+		root = Tk.Tk()
+		root.wm_title("Fes Extract Interface")
+
+		canvas = FigureCanvasTkAgg(fig, master=root)
+		canvas.show()
+		canvas.get_tk_widget().grid(row=0,column=3,columnspan=1,rowspan=60) #rowspan=30
+		#pack(side=Tk.TOP, fill=Tk.BOTH, expand=1)
+
+
+		canvas._tkcanvas.grid(row=0,column=3,columnspan=1,rowspan=60) #rowspan 30
+		#(side=Tk.TOP, fill=Tk.BOTH, expand=1)
+
+		canvas.mpl_connect('button_press_event', onclick)
+
+		Label(master=root, text="XTC File", font = "Verdana 10 bold").grid(row=0)
+		button = Button(master=root, text="Browse", command=lambda: load_file("xtc",b1), width=5)
+		button.grid(row=0,column=1)
+		b1 = Entry(master=root)
+		b1.grid(row=1, column=0, columnspan=2, padx=5, pady=0)
+
+
+		Label(master=root, text="GRO/PDB File", font = "Verdana 10 bold").grid(row=2)
+		button2 = Button(master=root, text="Browse", command=lambda: load_file("gro",b2), width=5)
+		button2.grid(row=2,column=1)
+		b2 = Entry(master=root)
+		b2.grid(row=3, column=0, columnspan=2, padx=5, pady=0)
+
+
+		Label(master=root, text="Data File", font = "Verdana 10 bold").grid(row=4)
+		button3 = Button(master=root, text="Browse", command=lambda: load_file("data",b3), width=5)
+		button3.grid(row=4,column=1)
+		b3 = Entry(master=root) 
+		b3.grid(row=5, column=0, columnspan=2, padx=0, pady=0)
+
+		set_default = Button(master=root, text="Set Default", command=lambda: default_is_on(), width=6)
+		set_default.grid(row=6, column=0, columnspan=1)
+	
+		set_outname = Button(master=root, text="Out File", command=lambda: get_outname(), width=6)
+                set_outname.grid(row=6, column=1, columnspan=1, padx=5, pady=0)
+	
+		root.bind("<Motion>", update)
+
+		ttk.Separator(root,orient=HORIZONTAL).grid(row=7, columnspan=2, sticky="ew", padx=5, pady=5)
+
+		Label(master=root, text="Command:").grid(row=8)
+		com = Text(master=root, width=10, height=10)
+		com.grid(row=9,column=0,columnspan=2,sticky=W+E+N+S, padx=5, pady=5)
+
+		button_run = Button(master=root, text="RUN", command=lambda: run_driver(), width=10)
+		button_run.grid(row=10,column=0,columnspan=2, padx=0, pady=0)
+
+                button_save = Button(master=root, text="Save", command=lambda: save_figure() , width=10)
+                button_save.grid(row=11,column=0, columnspan=2, padx=0, pady=0)
+
+
+		root.protocol('WM_DELETE_WINDOW', sys.exit)
+		default_is_on()
+		update()
+		Tk.mainloop()
+

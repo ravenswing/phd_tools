@@ -140,7 +140,7 @@ def download_from_server(server, remote_pth):
 # 1. the initial FES using the pp.proj and pp.ext CVs
 # 2. the 35 FES files (10ns each) for convergence and reweighting in the
 #    fes/ directory
-def run_sumhills(mode=None, reps):
+def run_sumhills(reps, mode=None):
     """ run plumed sum hills """
     # when running the SWISH analysis 
     if mode=='SWISH':
@@ -836,13 +836,22 @@ def driver_demux(reps):
         # write the file to driver input file
         with open("{}/plumed_demux.dat".format(SWD), 'w') as f:
             f.writelines(lines)
+        # PDB occupancy column must be 1.00 for all atoms for funnel CV to work...
         ct_aligned_path = "/media/arc/cem/UCB_PROJECT/CT_ALIGNED_REFSTRUCT/"
+        # read in PDB file
+        with open("{c}{p}.eqPR2.Ct.ALIGN.pdb".format(c=ct_aligned_path, p=PDB), 'r') as f:
+            lines = f.readlines()
+        # change all occupancy values
+        for i in range(len(lines)):  
+            lines[i] = lines[i].replace("  0.00  0.00", "  1.00  0.00")  
+        # save new lines back to PDB file
+        with open("{c}{p}.eqPR2.Ct.ALIGN.pdb".format(c=ct_aligned_path, p=PDB), 'w') as f:
+            f.writelines(lines)
         # call plumed Driver to generate new COLVARs
         try:
             subprocess.call("plumed driver \
                             --mf_xtc {w}/{n}_{p}_prod_scale5_{t}ns.xtc \
                             --plumed {w}/plumed_demux.dat \
-                            --timestep 0.002 \
                             --pdb {c}{p}.eqPR2.Ct.ALIGN.pdb \
                             --trajectory-stride 10" 
                             .format(w=SWD, p=PDB, t=TIME, n=rep, c=ct_aligned_path), shell=True)
@@ -851,7 +860,7 @@ def driver_demux(reps):
             sys.exit()
         # move the new COLVAR to the demux folder (SWISH/ANALYSIS)  
         os.rename("{}/{}".format(SWD, demux_col.split('/')[-1]),
-                  "{}/demux/colvar/{}".format(wd, demux_col.split('/')[-1]))
+                  "{}/demux/colvars/{}".format(wd, demux_col.split('/')[-1]))
 
 def energy_to_xvg(reps):
     """ CONVERT ENERGY output to xvg for each replica"""
@@ -861,7 +870,7 @@ def energy_to_xvg(reps):
             subprocess.call("echo 10 | gmx energy \
                             -f {w}/{p}_prod_swish{n}.edr \
                             -s {w}/{p}_NVT_prod{n}.tpr \
-                            -o {h}/energy/{n}_{p}_{t}ns_energy.xvg" 
+                            -o {h}/energies/{n}_{p}_{t}ns_energy.xvg" 
                             .format(w=SWD, p=PDB, t=TIME, n=rep, h=wd), shell=True)
         except:
             print('GMX Error')
@@ -893,7 +902,7 @@ if __name__ == '__main__':
     
     # SWISH demuxing & analysis
     else:
-        run_sumhills(mode='SWISH', SWISH_NREPS)
+        run_sumhills(SWISH_NREPS, mode='SWISH')
         demux(SWISH_NREPS)
         driver_demux(SWISH_NREPS)
         energy_to_xvg(SWISH_NREPS)
