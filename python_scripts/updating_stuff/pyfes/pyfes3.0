@@ -326,9 +326,6 @@ def main():
         fig.subplots_adjust(right=0.92, left=0.08, top=0.95, bottom=0.05)
     return {'fig':fig, 'x':xcoord, 'y':ycoord, 'z':zcoord, 'r':rows, 'c':cols}
 
-
-
-
 ###############################################################################
 def save_figure():
     """ save the figure """

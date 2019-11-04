@@ -18,6 +18,7 @@ import pymol.cmd as cmd
 # local scripts
 #import graphics as gr
 
+
 ########################################################
 #                   PARSING INPUTS
 ########################################################
@@ -140,7 +141,7 @@ def download_from_server(server, remote_pth):
 # 1. the initial FES using the pp.proj and pp.ext CVs
 # 2. the 35 FES files (10ns each) for convergence and reweighting in the
 #    fes/ directory
-def run_sumhills(reps, mode=None):
+def run_sumhills(reps=None, mode=None):
     """ run plumed sum hills """
     # when running the SWISH analysis 
     if mode=='SWISH':
@@ -166,8 +167,8 @@ def run_sumhills(reps, mode=None):
         try:
             subprocess.call("mkdir {w}/FES/".format(w=wd), shell=True)
             os.system('bash ./sumhills.sh')
-        except: 
-            print('ERROR: Unable to run SUM_HILLS 2') 
+        except:
+            print('ERROR: Unable to run SUM_HILLS 2')
     # when analysing funnel metaD 
     else:
         ## create a customised sumhills.sh to run both the sum_hills commands
@@ -460,10 +461,10 @@ def combine_colvars():
 
     # add every 10th line (and the second line) for GISMO colvar = 3503 lines
     gis_col = old_col.iloc[:2, :]
-    
+
     gis_col = gis_col.append(old_col.iloc[10::10, :], ignore_index=True)
     #   ONLY FOR 5akk: gis_col = gis_col.append(old_col.iloc[10:49700:10, :], ignore_index=True)
-    
+
     # define path for the original GISMO COLVAR file
     gismo_col_path = "{}/{}_OLD_GISMO.colvar".format(wd, stem)
     # add the header line to the new COLVAR
@@ -637,49 +638,88 @@ def one_d_fes():
 #                 DELTA G CALCULATIONS
 ########################################################
 
-def calculate_delta_g(fes_file, in_out_cutoff):
+def calculate_delta_g(fes_file, fes_dim,
+        cutoff=None, A=None, B=None):
     """ Calculate binding free energy from one fes file """
-    kT = 2.49
-    fes_data = pd.concat([df[df.cv != "#!"] \
-                          for df in \
-                          pd.read_csv(fes_file,
-                                      delim_whitespace=True,
-                                      names=['cv', 'fes_val'],
-                                      skiprows=5,
-                                      chunksize=1000)
-                         ]) 
-    # convert biases to probabilities
-    fes_data['fes_val'] = fes_data['fes_val'].apply(lambda x: exp(-x / kT))
-    # find total probabilities for each 'in' and 'out'
-    in_out = [fes_data[fes_data.cv <= in_out_cutoff].fes_val.sum(),
-              fes_data[fes_data.cv > in_out_cutoff].fes_val.sum()] 
-    total = sum(in_out)
-    # convert probabilities back to free energy values
-    in_out = list(map(lambda x: -kT * log(x / total) if x > 0 else np.inf, in_out))
-    # min-to-zero FE values
-    in_out = [i - min(in_out) for i in in_out]
-    # calc binding dG
-    delta_g = in_out[0] - in_out[1]
+    if fes_dim == '1D':
+        if cutoff is not None:
+            kT = 2.49
+            fes_data = pd.concat([df[df.cv != "#!"] \
+                                for df in \
+                                pd.read_csv(fes_file,
+                                            delim_whitespace=True,
+                                            names=['cv', 'fes_val'],
+                                            skiprows=5,
+                                            chunksize=1000)
+                                ])
+            # convert biases to probabilities
+            fes_data['fes_val'] = fes_data['fes_val'].apply(lambda x: exp(-x / kT))
+            # find total probabilities for each 'in' and 'out'
+            in_out = [fes_data[fes_data.cv <= cutoff].fes_val.sum(),
+                    fes_data[fes_data.cv > cutoff].fes_val.sum()]
+            total = sum(in_out)
+            # convert probabilities back to free energy values
+            in_out = list(map(lambda x: -kT * log(x / total) if x > 0 else np.inf, in_out))
+            # min-to-zero FE values
+            in_out = [i - min(in_out) for i in in_out]
+            # calc binding dG
+            delta_g = in_out[0] - in_out[1]
+        else:
+            print("Cutoff required for 1D FES analysis")
+            sys.exit()
+    elif fes_dim == '2D':
+        if A is not None and B is not None:
+            # A/B = [ x1, y1, x2, y2]
+            fes_data = pd.concat([df[df.cv != "#!"] \
+                                for df in \
+                                pd.read_csv(fes_file,
+                                            delim_whitespace=True,
+                                            names=['cv1', 'cv2', 'fes_val',
+                                                   'e1', 'e2'],
+                                            skiprows=9,
+                                            chunksize=1000)
+                                 ])
+            print( fes_data.head())
+            #                   
+            basin_A = fes_data[A[0] < fes_data.cv1 < A[2] and A[3] < fes_data.cv2 < A[1]].fes_val
+            basin_B = fes_data[B[0] < fes_data.cv1 < B[2] and B[3] < fes_data.cv2 < B[1]].fes_val
+            print( basin_A.head(), type(basin_A))
+
+            delta_g = basin_A.min() - basin_B.min()
+
+        else:
+            print("Box coords. required for 2D FES analysis")
+            sys.exit()
+    else:
+        print("FES dimensions must be 1D or 2D")
+        sys.exit()
     # convert to kcal and apply volume correction
     delta_g = (delta_g / 4.184) + 1.54
     return delta_g
 
-def process_delta_g(data_file, in_out_cutoff):
+def process_delta_g(data_file, fes_dim, in_out_cutoff=None):
     """ Process Convergence Proj files to calculate dG """
     n = (TIME/10)+1
     # read in HDF5 database of dG values
     database = pd.read_hdf(data_file, key='deltag')
+    basins = pd.read_hdf("./basins.hd5", key='mintyzero')
     # find fes files and run dG calculation on them (in order)
     delta_g_vals = []
-    for fes_file in sorted(glob.glob('{}/conv_proj/fes_*'.format(wd)),\
-                    key=lambda name: int(name.split('_')[-1][:-4])):
-        delta_g = calculate_delta_g(fes_file, in_out_cutoff) 
-        delta_g_vals.append(delta_g)
+    if fes_dim == '1D':
+        for fes_file in sorted(glob.glob('{}/conv_proj/fes_*'.format(wd)),\
+                        key=lambda name: int(name.split('_')[-1][:-4])):
+            delta_g = calculate_delta_g(fes_file, '1D', cutoff=in_out_cutoff)
+            delta_g_vals.append(delta_g)
+    elif fes_dim == '2D':
+        for fes_file in sorted(glob.glob('{}/fes/fes_*'.format(wd)),\
+                        key=lambda name: int(name.split('_')[-1][:-4])):
+            delta_g = calculate_delta_g(fes_file, '2D', )
+    else:
+        print("FES dimensions must be 1D or 2D")
+        sys.exit()
     # create 0-350 ns timestamps for database indexing
-    
     index = np.arange(0, n)*10
     #   ONLY FOR 5akk: index = np.arange(0, (TIME/10))*10
-    
     funnel = 'FS{}'.format(FS)
     # Make user aware of overwriting and database status
     if PDB in database.columns.levels[0] and FS in database.columns.levels[1]:
@@ -729,14 +769,14 @@ def demux(reps):
     rep_index = pathlib.Path("./replica_index.xvg")
     if rep_index.exists():
         rep_index.unlink()
-    # use Gromacs' included demux.pl script to create replica index in current dir. 
+    # use Gromacs' included demux.pl script to create replica index in current dir.
     try:
-        subprocess.call("demux.pl {w}/{p}_prod_swish0.log"    
+        subprocess.call("demux.pl {w}/{p}_prod_swish0.log"
                         .format(w=SWD, p=pdb), shell=True)
     except:
         print('Demux.pl Error')
         sys.exit()
-    # move replica index file to SWISH production directory. 
+    # move replica index file to SWISH production directory.
     destination = pathlib.Path("{}/replica_index.xvg".format(SWD))
     rep_index.replace(destination)
     """
@@ -746,10 +786,10 @@ def demux(reps):
         os.remove(rep_index)
     # use Gromacs' included demux.pl script to create replica index in current dir. 
     try:
-        subprocess.call("demux.pl {w}/{p}_prod_swish0.log"    
+        subprocess.call("demux.pl {w}/{p}_prod_swish0.log"
                         .format(w=SWD, p=PDB), shell=True)
     except:
-        print('Demux.pl Error') 
+        print('Demux.pl Error')
         sys.exit()
     # move replica index file to SWISH production directory. 
     os.rename(rep_index, "{}/replica_index.xvg".format(SWD))
@@ -763,7 +803,7 @@ def demux(reps):
                         -o {p}_prod_scale5_{t}ns.xtc"
                         .format(w=SWD, p=PDB, t=TIME), shell=True)
     except:
-        print('trjcat Error') 
+        print('trjcat Error')
     # move newly created demuxed trajectories to SWISH production directory
     subprocess.call("mv ./*_{p}_prod_scale5_{t}ns.xtc {w}/"
                     .format(w=SWD, p=PDB, t=TIME), shell=True)
@@ -802,11 +842,12 @@ def demux(reps):
                             -o {w}/{n}_{p}_prod_scale5_{t}ns_GISMO.xtc \
                             -fit rot+trans -dt 100 -e {T} \
                             -n {w}/index_{p}.ndx"
-                            .format(w=SWD, p=PDB, t=TIME, T=TIME*1000,  n=rep, c=ct_aligned_path), shell=True)
+                            .format(w=SWD, p=PDB, t=TIME, T=TIME*1000,
+                                    n=rep, c=ct_aligned_path), shell=True)
         except:
             print('trjconv Error')
         # move cutdown trajectory to ANALYSIS dir. 
-        demux_gis = "{n}_{p}_prod_scale5_{t}ns_GISMO.xtc".format(w=SWD, p=PDB, t=TIME, n=rep)
+        demux_gis = "{n}_{p}_prod_scale5_{t}ns_GISMO.xtc".format(p=PDB, t=TIME, n=rep)
         os.rename("{}/{}".format(SWD, demux_gis), "{}/demux/traj/{}".format(wd, demux_gis))
 # Recreates...
 #echo Protein_LIG | gmx trjconv -s 5akk_NVT_prod0.tpr -f 5_5akk_prod_scale5_300ns.xtc -o 5_5akk_prod_scale5_300ns_whole.xtc -pbc whole -n index_5akk.ndx
@@ -815,7 +856,7 @@ def demux(reps):
 #echo Backbone Protein_LIG | gmx trjconv -s ../../../../CT_ALIGNED_REFSTRUCT/5akk.eqPR2.Ct.ALIGN.pdb -f 0_5akk_prod_scale5_300ns_center.xtc -o 0_5akk_SWs1_300ns_dry_3ksnaps_fitted.xtc -fit rot+trans -n index_5akk.ndx -dt 100 -e 350000
 
 def driver_demux(reps):
-    """ CREATE PLUMED.DRIVER FILE & RUN DRIVER """    
+    """ CREATE PLUMED.DRIVER FILE & RUN DRIVER """
     for rep in np.arange(reps):
         #  read in plumed used for SWISH
         with open("{}/plumed.0.dat".format(SWD), 'r') as f:
@@ -832,7 +873,7 @@ def driver_demux(reps):
                 lines[i] = ''.join(["#", lines[i]])
             # edit path to cmap to point to original SWISH production dir.
             elif "INCLUDE" and "cmap" in lines[i]:
-                lines[i] = lines[i].replace("cmap.dat", "{}/cmap.dat".format(SWD)) 
+                lines[i] = lines[i].replace("cmap.dat", "{}/cmap.dat".format(SWD))
         # write the file to driver input file
         with open("{}/plumed_demux.dat".format(SWD), 'w') as f:
             f.writelines(lines)
@@ -842,8 +883,8 @@ def driver_demux(reps):
         with open("{c}{p}.eqPR2.Ct.ALIGN.pdb".format(c=ct_aligned_path, p=PDB), 'r') as f:
             lines = f.readlines()
         # change all occupancy values
-        for i in range(len(lines)):  
-            lines[i] = lines[i].replace("  0.00  0.00", "  1.00  0.00")  
+        for i in range(len(lines)):
+            lines[i] = lines[i].replace("  0.00  0.00", "  1.00  0.00")
         # save new lines back to PDB file
         with open("{c}{p}.eqPR2.Ct.ALIGN.pdb".format(c=ct_aligned_path, p=PDB), 'w') as f:
             f.writelines(lines)
@@ -853,7 +894,7 @@ def driver_demux(reps):
                             --mf_xtc {w}/{n}_{p}_prod_scale5_{t}ns.xtc \
                             --plumed {w}/plumed_demux.dat \
                             --pdb {c}{p}.eqPR2.Ct.ALIGN.pdb \
-                            --trajectory-stride 10" 
+                            --trajectory-stride 10"
                             .format(w=SWD, p=PDB, t=TIME, n=rep, c=ct_aligned_path), shell=True)
         except:
             print("ERROR: Driver failed")
@@ -866,11 +907,11 @@ def energy_to_xvg(reps):
     """ CONVERT ENERGY output to xvg for each replica"""
     for rep in np.arange(reps):
         # use gmx energy to read in edr and output xvg
-        try:             
+        try:
             subprocess.call("echo 10 | gmx energy \
                             -f {w}/{p}_prod_swish{n}.edr \
                             -s {w}/{p}_NVT_prod{n}.tpr \
-                            -o {h}/energies/{n}_{p}_{t}ns_energy.xvg" 
+                            -o {h}/energies/{n}_{p}_{t}ns_energy.xvg"
                             .format(w=SWD, p=PDB, t=TIME, n=rep, h=wd), shell=True)
         except:
             print('GMX Error')
@@ -886,8 +927,8 @@ if __name__ == '__main__':
         download_from_server("mn", "/home/cnio96/cnio96742/scratch/UCB_metaD/")
 
     # non-SWISH standard run order & analysis
-    if SWISH_NREPS is None:        
-        run_sumhills()       
+    if SWISH_NREPS is None:
+        run_sumhills()
         if not ARGS.nooutpdb:
             generate_outpdb()
         align_pdbs()
@@ -899,7 +940,7 @@ if __name__ == '__main__':
         one_d_fes()
         process_delta_g(DATA_FILE, 3.5)
         reweight_og_variables()
-    
+
     # SWISH demuxing & analysis
     else:
         run_sumhills(SWISH_NREPS, mode='SWISH')

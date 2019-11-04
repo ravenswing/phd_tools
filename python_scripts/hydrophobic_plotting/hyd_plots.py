@@ -94,15 +94,15 @@ def processHelicity (srcdir, mol, frames):
         for i in range(num_pep):
             peptide_chunk = chunk.atom_slice(chunk.top.select("resid {} to {}".format(i*pep_length, (i+1)*pep_length-1)))
             dssp = md.compute_dssp(peptide_chunk, simplified=False)
-            helicity = (dssp == 'H') | (dssp == 'G') | (dssp == 'I')
-           # helicity = (dssp == 'E') | (dssp == 'B')
+           # helicity = (dssp == 'H') | (dssp == 'G') | (dssp == 'I')
+            helicity = (dssp == 'E') | (dssp == 'B')
             in_data[:, i] = np.sum(helicity, axis=1)/1.0
         df = df.append(pd.DataFrame(in_data, columns=col), ignore_index=True)
     df['tot_hel'] = df.sum(axis=1)
     print(df.head())
     print(df.shape)
-    df.iloc[:frames, :].to_csv(mol+'_hel_data.csv')
-    #df.iloc[:frames, :].to_csv(mol+'_strand_data.csv')
+    #df.iloc[:frames, :].to_csv(mol+'_hel_data.csv')
+    df.iloc[:frames, :].to_csv(mol+'_strand_data.csv')
 
 
 def processHBonds(mol,limit):
@@ -274,19 +274,21 @@ def plot_indcomb(name, pep_length, ylims, ylabels, window_size):
     x = np.arange(100000)
 
     uncapped_name = name[0]+name[1]
-    capped_name = name[0]+"Ncapped_"+name[1]
+    #capped_name = name[0]+"Ncapped_"+name[1]
 
-    capped_data = pd.read_csv(capped_name, usecols=['tot_hel'])
+    #capped_data = pd.read_csv(capped_name, usecols=['tot_hel'])
     uncapped_data = pd.read_csv(uncapped_name, usecols=['tot_hel'])
     if "hel" or "strand" in name[1]:
-        capped_data['tot_hel'] = (capped_data['tot_hel'] / (num_pep*((pep_length+1)-2)))*100
+    #    capped_data['tot_hel'] = (capped_data['tot_hel'] / (num_pep*((pep_length+1)-2)))*100
         uncapped_data['tot_hel'] = (uncapped_data['tot_hel'] / (num_pep*(pep_length-2)))*100
-    capped_data.rename(columns={'tot_hel': 'capd'}, inplace=True)
+    #capped_data.rename(columns={'tot_hel': 'capd'}, inplace=True)
     uncapped_data.rename(columns={'tot_hel': 'uncapd'}, inplace=True)
 
-    data = capped_data.merge(uncapped_data, left_index=True, right_index=True)
+    #data = capped_data.merge(uncapped_data, left_index=True, right_index=True)
+    data = uncapped_data
 
-    for d in ['capd', 'uncapd']:
+    #for d in ['capd', 'uncapd']:
+    for d in ['uncapd']:
         data[d+'_rm'] = data[d].rolling(window_size, center=True).mean()
         data[d+'_std'] = data[d].rolling(window_size, center=True).std()
         data[d+'_min'] = data[d+'_rm'] + data[d+'_std']
@@ -310,7 +312,7 @@ def plot_indcomb(name, pep_length, ylims, ylabels, window_size):
         plt.yticks(fontweight='medium', fontsize=font_sizes[1])
         fig.savefig(figure_path+uncapped_name+"_"+d+".png", bbox_inches='tight', transparent=True, dpi=300)
 
-
+'''
     fig2, ax2 = plt.subplots(figsize=(20, 16))
     for d in ['capd', 'uncapd']:
         ax2.plot(data[d+'_rm'], color=col[d], linewidth=4.0, zorder=21)
@@ -328,12 +330,14 @@ def plot_indcomb(name, pep_length, ylims, ylabels, window_size):
     ax2.legend(['N Terminal Capped', 'Uncapped'], fontsize=font_sizes[1])
     plt.yticks(fontweight='medium', fontsize=font_sizes[1])
     fig2.savefig(figure_path+uncapped_name+"_COMBIND.png", bbox_inches='tight', transparent=True, dpi=300)
-
+'''
 PROCESSING = [False, False]
 #run(PROCESSING, mol)
 
 #for mol in ['brush_3HIS+GLYx3_4x4_0.0A', 'brush_3HIS+GLYx3_Ncapped_4x4_0.0A']:
+#for mol in ['brush_3HIS+GLYx7_4x4_0.0A',]:
     #pep_length = 13 if "Ncapped" in mol else 12
+    #pep_length = 29 if "Ncapped" in mol else 28
     #print("Using PEP_LENGTH:  "+str(pep_length))
     #processHelicity(srcdir, mol, 100000)
     #processMetric(srcdir, mol, 100000, "E2E")
@@ -343,8 +347,8 @@ PROCESSING = [False, False]
 #plot_brush_csv(mol+'_strand_data.csv', [-0.2, 5.0], '% Stranda (DSSP)')
 #plot_brush_csv(mol+'_hel_data.csv', [-0.2, 7.0], '% Helicity (DSSP)')
 
-plot_indcomb(["brush_3HIS+GLYx3_", "4x4_0.0A_hel_data.csv"], 12, [-2.0, 100.0], '% Helicity (DSSP)', 1000)
-plot_indcomb(["brush_3HIS+GLYx3_", "4x4_0.0A_strand_data.csv"], 12, [-2.0, 100.0], '% Strand (DSSP)', 1000)
-plot_indcomb(["brush_3HIS+GLYx3_", "4x4_0.0A_RMSD_data.csv"], 12, [0.0, 0.5], 'RMSD from linear / nm', 1000)
-plot_indcomb(["brush_3HIS+GLYx3_", "4x4_0.0A_RGYR_data.csv"], 12, [0.0, 1.0], '$R_{gyr}$ / nm', 1000)
-plot_indcomb(["brush_3HIS+GLYx3_", "4x4_0.0A_E2E_data.csv"], 12, [0.0, 5.0], 'End-to-end Distance / nm', 1000)
+plot_indcomb(["brush_3HIS+GLYx7_", "4x4_0.0A_hel_data.csv"], 12, [-2.0, 100.0], '% Helicity (DSSP)', 1000)
+plot_indcomb(["brush_3HIS+GLYx7_", "4x4_0.0A_strand_data.csv"], 12, [-2.0, 100.0], '% Strand (DSSP)', 1000)
+plot_indcomb(["brush_3HIS+GLYx7_", "4x4_0.0A_RMSD_data.csv"], 12, [0.0, 0.5], 'RMSD from linear / nm', 1000)
+plot_indcomb(["brush_3HIS+GLYx7_", "4x4_0.0A_RGYR_data.csv"], 12, [0.0, 2.0], '$R_{gyr}$ / nm', 1000)
+plot_indcomb(["brush_3HIS+GLYx7_", "4x4_0.0A_E2E_data.csv"], 12, [0.0, 5.0], 'End-to-end Distance / nm', 1000)
