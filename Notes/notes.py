@@ -1,155 +1,54 @@
+"""
+                LET'S MAKE A NOTES APP
+"""
 
-import sys
+import argparse
+import glob
 import os
-
-
-class NoteAutomator:
-    markdown = ".md"
-    python = ".py"
-    java = ".java"
-    dart = ".dart"
-    text = ".txt"
-    yaml = ".yaml"
-    json = ".json"
-
-    extensions = {
-        "markdown" : markdown,
-        "md" : markdown,
-        ".md" : markdown,
-        "MD" : markdown,
-        "M" : markdown,
-        "python" : python,
-        ".py" : python,
-        "text" : text,
-        ".txt" : text,
-        "java" : java,
-        ".java" : java,
-        "dart" : dart,
-        "flutter" : dart,
-        ".dart" : dart,
-        "yaml" : yaml,
-        ".yaml" : yaml,
-        "json" : json,
-        "jason" : json,
-        ".json" : json
-    }
-
-    extension = ""
-    folderName = ""
-    fileName = ""
-    foundFileExtension = ""
-    path = os.getcwd()
-
-    def getArgs(self, ext_num, fold_num):
-        try:
-            self.extension = str(sys.argv[ext_num]).lower()
-            self.extension = self.extensions[self.extension]
-        except Exception:
-            self.extension = ".txt"
-        try:
-            self.folderName = str(sys.argv[fold_num])
-        except Exception:
-            self.folderName = "General"
-        try:
-            self.fileName = str(sys.argv[2])
-        except Exception:
-            print("Name your note")
-            sys.exit()
-
-    def createNoteAndFolder(self):
-        os.chdir("./Notes")
-
-        self.fileName = self.fileName + self.extension
-        if os.path.isdir("./" + self.folderName):
-            os.chdir("./" + self.folderName)
-        else:
-            os.mkdir(self.folderName)
-            os.chdir("./" + self.folderName)
-
-        if not os.path.isfile("./" + self.fileName):
-            open(self.fileName, "a").close()
-
-        os.system("subl " + self.fileName)
-
-    def findFileInFolder(self, folder):
-        if os.path.isdir(self.path + "/" + folder):
-            self.path = self.path + "/" + folder
-            self.findFile(self.fileName, "", self.path)
-        else:
-            self.path = self.findFolder(folder, "", self.path)
-            self.findFile(self.fileName, "",  self.path)
-
-        # print(self.path)
-        os.system("subl " + self.path)
-
-    def findFile(self, fileToFind, folderToSearch, thepath):
-        fileExists = False
-        pathToFolder = ""
-        for subdir, dirs, files in os.walk(thepath + folderToSearch):
-            for dir_ in dirs:
-                if dir_.lower() == self.folderName.lower():
-                    pathToFolder = ""
-                    pathToFolder = subdir + "/" + self.folderName
-            for file_ in files:
-                name = ""
-                for i in range(len(str(file_))):
-                    if len(str(self.fileName)) > i:
-                        if str(file_).lower()[i] == str(self.fileName).lower()[i]:
-                            name = name + str(file_)[i]
-                            if len(name) > len(self.fileName) * 0.8:
-                                self.path = os.path.join(subdir, file_)
-                                fileExists = True
-                                break
-        if not fileExists:
-            self.path = os.path.join(pathToFolder ,self.fileName + self.extension)
-            open(self.path, "a").close()
+import pathlib
 
 
 
-if __name__ == "__main__":
-    notes = NoteAutomator()
+PARSER = argparse.ArgumentParser(\
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="Reweighting Scripts", epilog=" ")
 
-    command = str(sys.argv[1])
-
-    if command == "nfe":
-        notes.getArgs(4, 3)
-        notes.createNoteAndFolder()
-    if command == "on":
-        notes.getArgs(4, 3)
-        try:
-            notes.findFileInFolder(str(sys.argv[3]))
-        except Exception:
-            notes.findFileInFolder("")
-    if command == "ne":
-        notes.getArgs(3, 10)
-        notes.findFileInFolder("")
-
-# gnome-terminal --command='vim ewNote.txt'
+PARSER.add_argument("-name", type=str, default='note',
+                    help='Generic note (default: %(default)s)', required=False)
+PARSER.add_argument("-dir", type=str, default='General',
+                    help='Generic note (default: %(default)s)', required=False)
+PARSER.add_argument("-ext", type=str, default='.md',
+                    help='Generic note (default: %(default)s)', required=False)
+PARSER.add_argument("-log", action="store_true",
+                    help='Analyse SWISH data (default: %(default)s)')
 
 
+ARGS = PARSER.parse_args()
 
+def create_note(directory, name, ext):
+    path = pathlib.Path(directory+name+ext)
+    if not path.parent.exists():
+        path.parent.mkdir(parents=True)
+    command = "gnome-terminal --command='vim {}' &".format(path)
+    os.system(command)
 
+def unique_path(directory, name_pattern):
+    counter = 0
+    while True:
+        counter += 1
+        path = directory / name_pattern.format(counter)
+        if not path.exists():
+            return path
+    # Usage:
+    #path = unique_path(pathlib.Path.cwd(), 'test{:03d}.txt')
 
+def unnamed_note(directory=None):
+    if directory is not None:
+        path = unique_path(pathlib.Path(directory), 'Note_{:02d}.md')
+    else:
+        path = unique_path(pathlib.Path.cwd(), 'Note_{:02d}.md')
+    command = "gnome-terminal --command='vim {}' &".format(path)
+    os.system(command)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+if __name__ == '__main__':
+    create_note('./NEW_FOLDER/', 'TEST', '.txt')
