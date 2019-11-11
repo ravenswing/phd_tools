@@ -713,7 +713,10 @@ def process_delta_g(data_file, fes_dim, in_out_cutoff=None):
     elif fes_dim == '2D':
         for fes_file in sorted(glob.glob('{}/fes/fes_*'.format(wd)),\
                         key=lambda name: int(name.split('_')[-1][:-4])):
-            delta_g = calculate_delta_g(fes_file, '2D', )
+            bsn = pd.read_hdf("./basins.hd5", key='mintyzero')
+            basinA = bsn.loc[(bsn.pdb == PDB) & (bsn.funnel == FS)].A.values[0]
+            basinB = bsn.loc[(bsn.pdb == PDB) & (bsn.funnel == FS)].B.values[0]
+            delta_g = calculate_delta_g(fes_file, '2D', A=basinA, B=basinB)
     else:
         print("FES dimensions must be 1D or 2D")
         sys.exit()
@@ -759,7 +762,7 @@ def reweight_og_variables():
             print("ERROR: reweight.py failed.")
 
 ########################################################
-#                 DELTA G CALCULATIONS
+#                 SWISH DEMUX ANALYSIS
 ########################################################
 
 def demux(reps):

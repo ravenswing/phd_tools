@@ -19,7 +19,7 @@ data = [
     ['5alg', 2, [0.7, 1.25, 1.7, 0.0], [3.0, 0.5, 4.5, 0.0]],
     ['5alp', 1, [0.5, 1.0, 1.3, 0.0], [3.5, 0.5, 4.5, 0.0]],
     ['5alp', 2, [0.6, 1.3, 1.4, 0.25], [3.5, 0.5, 4.5, 0.0]],
-    ['5alh', 1, [0.5, 1.25, 1.4, 0.3], [3.5, 0.45, 4.5, 0.0]],
+    ['5alh', 1, [0.5, 1.3, 1.6, 0.25], [3.5, 0.45, 4.5, 0.0]],
     ['5alh', 2, [0.7, 1.1, 1.5, 0.0], [3.5, 0.45, 4.5, 0.0]],
     ['5ai5', 1, [0.5, 1.0, 1.5, 0.0], [3.4, 0.5, 4.6, 0.0]],
     ['5ai5', 2, [0.9, 0.5, 1.8, 0.0], [3.5, 0.5, 4.5, 0.0]],
@@ -51,10 +51,15 @@ data = [
     ['5ak6', 2, [0.9, 1.2, 1.75, 0.0], [3.5, 0.5, 4.5, 0.0]],
     ]
 
-#df = pd.DataFrame(data, columns=['pdb', 'funnel', 'A', 'B'])
-#save(df)
+df = pd.DataFrame(data, columns=['pdb', 'funnel', 'A', 'B'])
+save(df)
 
 test = read_in()
-print(test.head())
 
-print(test[test.pdb == '5am4'])
+#print(type(test[(test.pdb == '5am4') & (test.funnel == 1)].at['A'][0]))
+#a = test.loc[(test.pdb == '5am4') & (test.funnel == 1)].A.values[0]
+#print(a)
+#print(type(a))
+
+print(test[test.funnel==2])
+
