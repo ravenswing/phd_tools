@@ -1,0 +1,4 @@
+
+
+### NOVEMBER 2019 LOG FILE
+

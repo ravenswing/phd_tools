@@ -56,5 +56,4 @@ data = [
 
 test = read_in()
 print(test.head())
-
 print(test[test.pdb == '5am4'])

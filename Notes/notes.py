@@ -3,6 +3,7 @@
 """
 
 import argparse
+import datetime
 import glob
 import os
 import pathlib
@@ -25,11 +26,14 @@ PARSER.add_argument("-log", action="store_true",
 
 ARGS = PARSER.parse_args()
 
-def create_note(directory, name, ext):
+def create_note(directory, name, ext, cont=True):
     path = pathlib.Path(directory+name+ext)
     if not path.parent.exists():
         path.parent.mkdir(parents=True)
-    command = "gnome-terminal --command='vim {}' &".format(path)
+    command = "gnome-terminal --command='vim {}'".format(path)
+    if cont:
+        command += ' &'
+    print(command)
     os.system(command)
 
 def unique_path(directory, name_pattern):
@@ -50,5 +54,20 @@ def unnamed_note(directory=None):
     command = "gnome-terminal --command='vim {}' &".format(path)
     os.system(command)
 
+def log():
+    today = datetime.datetime.now()
+    logfile = today.strftime("%Y_%B.md")
+    path = pathlib.Path('Research_Logs/'+logfile)
+    if not path.exists():
+        with path.open(mode='w+') as f:
+            f.write("\n\n### {} {} LOG FILE\n\n"
+                    .format(today.strftime("%B").upper(),
+                            today.strftime("%Y")))
+    create_note('Research_Logs','log','.tmp', cont=False)
+    print('THIS COMES AFTER EDITING')
+    print(logfile)
+
+
 if __name__ == '__main__':
-    create_note('./NEW_FOLDER/', 'TEST', '.txt')
+    #create_note('./NEW_FOLDER/', 'TEST', '.txt')
+    log()
