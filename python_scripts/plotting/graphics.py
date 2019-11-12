@@ -205,8 +205,8 @@ def diffusion(colv_data, cv, ax, lin_col):
     if cv == 'proj':
         ax.set_ylim([-0.3, 5.0])
         ax.set_yticks(np.arange(6))
-        ax.axhline(y=3.5, xmax=500., c='k', alpha=0.5, lw=1., ls='--')
-        ax.axhline(y=0.5, xmax=500., c='k', alpha=0.5, lw=1., ls='--')
+        ax.axhline(y=3.0, xmax=500., c='k', alpha=0.5, lw=1., ls='--')
+        ax.axhline(y=0.7, xmax=500., c='k', alpha=0.5, lw=1., ls='--')
     else:
         ax.set_ylim([-0.1, 1.7])
         ax.set_yticks(np.linspace(0., 1.5, num=4))

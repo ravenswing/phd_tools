@@ -74,9 +74,10 @@ def fes_multiplot(pdb_list, cbar_max):
 
     plt.subplots_adjust(left=0.15)
     # Y LABELS
-    for i in np.arange(len(pdb_list)):
-        fig.text(0.1, 0.24+(i*0.26), axis_labels[1]+' / nm', va='center', rotation='vertical', fontsize=10)
-        fig.text(0.06, 0.23+(i*0.26), pdb_list[i], ha='center', fontsize=14)
+    A = np.arange(len(pdb_list))
+    for i in A:
+        fig.text(0.1, 0.24+(A[-i-1]*0.26), axis_labels[1]+' / nm', va='center', rotation='vertical', fontsize=10)
+        fig.text(0.06, 0.23+(A[-i-1]*0.26), pdb_list[i], ha='center', fontsize=14)
     # X LABELS
     for i in [0,1]:
         fig.text(0.34+(i*0.39), 0.065, axis_labels[0]+' / nm', ha='center', fontsize=10)
