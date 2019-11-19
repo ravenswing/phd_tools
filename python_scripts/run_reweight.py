@@ -7,13 +7,14 @@ from math import log, exp
 import argparse
 import glob
 import os
+import pickle
 import subprocess
 import sys
 import numpy as np
 import pandas as pd
 #import pathlib         # ONLY WORKS IN PYTHON 3
-import pymol
-import pymol.cmd as cmd
+#import pymol
+#import pymol.cmd as cmd
 
 # local scripts
 #import graphics as gr
@@ -93,10 +94,10 @@ stem = "{}-FS{}".format(PDB, FS)            # root for all filenames
 colvar = "{}/{}_OLD.colvar".format(wd, stem)# output COLVAR from simulation
 xtc = "{}/{}_dry_center.xtc".format(wd, stem)# output xtc from post-processing
 tpr = "{}/{}".format(wd, ARGS.tpr)             # tpr file used in the simulation
-#ndx = "{}/index_{}.ndx".format(wd, PDB)      # index file for the current system
-ndx = "{}/i.ndx".format(wd)      # index file for the current system
+ndx = "{}/index_{}.ndx".format(wd, PDB)      # index file for the current system
+#ndx = "{}/i.ndx".format(wd)      # index file for the current system
 out_name = "{}/{}_OUT.pdb".format(wd, stem) # OUT pdb name
-DATA_FILE = 'dG_database.h5'
+DATA_FILE = 'dG_database.h5' if SWISH_NREPS is None else 'SWISH_dG.csv'
 
 # if using -download:
 # store of username@address for ssh and rsync, keys = remote server name
@@ -670,7 +671,7 @@ def calculate_delta_g(fes_file, fes_dim,
     elif fes_dim == '2D':
         if A is not None and B is not None:
             # A/B = [ x1, y1, x2, y2]
-            fes_data = pd.concat([df[df.cv != "#!"] \
+            fes_data = pd.concat([df[df.cv1 != "#!"] \
                                 for df in \
                                 pd.read_csv(fes_file,
                                             delim_whitespace=True,
@@ -679,14 +680,16 @@ def calculate_delta_g(fes_file, fes_dim,
                                             skiprows=9,
                                             chunksize=1000)
                                  ])
-            print( fes_data.head())
+            #print( fes_data.head())
             #                   
-            basin_A = fes_data[A[0] < fes_data.cv1 < A[2] and A[3] < fes_data.cv2 < A[1]].fes_val
-            basin_B = fes_data[B[0] < fes_data.cv1 < B[2] and B[3] < fes_data.cv2 < B[1]].fes_val
-            print( basin_A.head(), type(basin_A))
-
+            #basin_A = fes_data[(A[0] < fes_data.cv1 < A[2]) & (A[3] < fes_data.cv2 < A[1])].fes_val
+            #basin_B = fes_data[B[0] < fes_data.cv1 < B[2] and B[3] < fes_data.cv2 < B[1]].fes_val
+            
+            basin_A = fes_data[(fes_data.cv1.between(A[0], A[2])) & (fes_data.cv2.between(A[3], A[1]))].fes_val
+            basin_B = fes_data[(fes_data.cv1.between(B[0], B[2])) & (fes_data.cv2.between(B[3], B[1]))].fes_val
+            #print(basin_A, type(basin_A))
+            #print( basin_A.head(), type(basin_A))
             delta_g = basin_A.min() - basin_B.min()
-
         else:
             print("Box coords. required for 2D FES analysis")
             sys.exit()
@@ -699,7 +702,8 @@ def calculate_delta_g(fes_file, fes_dim,
 
 def process_delta_g(data_file, fes_dim, in_out_cutoff=None):
     """ Process Convergence Proj files to calculate dG """
-    n = (TIME/10)+1
+    n = int((TIME/10)+1)
+    print("INFO: Processing dG for {}-FS{} with {}ns".format(PDB,FS,n))
     # read in HDF5 database of dG values
     database = pd.read_hdf(data_file, key='deltag')
     basins = pd.read_hdf("./basins.hd5", key='mintyzero')
@@ -716,7 +720,8 @@ def process_delta_g(data_file, fes_dim, in_out_cutoff=None):
             bsn = pd.read_hdf("./basins.hd5", key='mintyzero')
             basinA = bsn.loc[(bsn.pdb == PDB) & (bsn.funnel == FS)].A.values[0]
             basinB = bsn.loc[(bsn.pdb == PDB) & (bsn.funnel == FS)].B.values[0]
-            delta_g = calculate_delta_g(fes_file, '2D', A=basinA, B=basinB)
+            delta_g = calculate_delta_g(fes_file, '2D', A=basinA, B=basinB) 
+            delta_g_vals.append(delta_g)
     else:
         print("FES dimensions must be 1D or 2D")
         sys.exit()
@@ -730,9 +735,38 @@ def process_delta_g(data_file, fes_dim, in_out_cutoff=None):
     else:
         print("\nNo delta_G values found for {}-{}\n\tADDING TO DATABASE".format(PDB, funnel))
     # Place new dG data into database, indexed correctly
-    database[PDB, funnel] = pd.Series(delta_g_vals[:n], index=index)
+    print('Pickling {} values for {} {}'.format(len(delta_g_vals),PDB,funnel))
+    if PDB == '5am0':
+        pickle.dump(delta_g_vals, open("{}_FS{}_dGval_{}ns.p".format(PDB,FS,TIME), "wb"))
+    #print(n, delta_g_vals[:-3])
+    # index [-n:] extracts the last n values to catch any issues with >500ns times to match FES
+    database[PDB, funnel] = pd.Series(delta_g_vals[-n:], index=index)
 
     database.to_hdf(data_file, key='deltag')
+
+def SWISH_process_delta_g(data_file, in_out_cutoff=None):
+    """ Process Convergence Proj files to calculate dG """
+    n = int((TIME/10)+1)
+    print("INFO: Processing dG for {}-FS{} with {}ns".format(PDB,FS,n))
+    # read in CSV database of dG values
+    database = pd.read_csv(data_file, sep=',') 
+    bsn = pd.read_hdf("./basins.hd5", key='mintyzero')
+    # find fes files and run dG calculation on them (in order) 
+    if not database['pdb'].isin([PDB]).any():
+        print('Adding new PDB to database: ' + PDB)
+        df = pd.DataFrame([[PDB,0,0,0,0,0,0]],columns=['pdb','r0','r1','r2','r3','r4','r5']) 
+        database = database.append(df, ignore_index=True) 
+
+    res_num = 0 
+    for fes_file in sorted(glob.glob('{}/FES/*300ns.fes'.format(wd)),\
+                    key=lambda name: int(name.split('/')[-1].split('_')[0])):
+        basinA = bsn.loc[(bsn.pdb == PDB) & (bsn.funnel == FS)].A.values[0]
+        basinB = bsn.loc[(bsn.pdb == PDB) & (bsn.funnel == FS)].B.values[0]
+        delta_g = calculate_delta_g(fes_file, '2D', A=basinA, B=basinB) 
+        database.loc[database['pdb'] == PDB, 'r{}'.format(res_num)] = delta_g
+        res_num += 1
+     # save database 
+    database.to_csv(data_file, sep=',', index=False)
 
 def reweight_og_variables():
 
@@ -931,22 +965,25 @@ if __name__ == '__main__':
 
     # non-SWISH standard run order & analysis
     if SWISH_NREPS is None:
-        run_sumhills()
+        #run_sumhills()
         if not ARGS.nooutpdb:
             generate_outpdb()
-        align_pdbs()
-        edit_pdb("VMD", "VMD")
-        driver_rmsd()
-        combine_colvars()
-        run_ext_script()
-        cutdown_traj()
-        one_d_fes()
-        process_delta_g(DATA_FILE, 3.5)
-        reweight_og_variables()
+        #align_pdbs()
+        #edit_pdb("VMD", "VMD")
+        #driver_rmsd()
+        #combine_colvars()
+        #run_ext_script()
+        #cutdown_traj()
+        #one_d_fes()
+        process_delta_g(DATA_FILE, '2D')
+        #reweight_og_variables()
 
     # SWISH demuxing & analysis
     else:
-        run_sumhills(SWISH_NREPS, mode='SWISH')
-        demux(SWISH_NREPS)
-        driver_demux(SWISH_NREPS)
-        energy_to_xvg(SWISH_NREPS)
+        #run_sumhills(SWISH_NREPS, mode='SWISH')
+        #demux(SWISH_NREPS)
+        #driver_demux(SWISH_NREPS)
+        #energy_to_xvg(SWISH_NREPS)
+        SWISH_process_delta_g(DATA_FILE, '2D')
+    
+        
