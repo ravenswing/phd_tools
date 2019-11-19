@@ -5,6 +5,7 @@ import numpy as np
 from numpy.polynomial import polynomial as P
 import matplotlib.pyplot as plt
 import pandas as pd
+from sklearn import metrics
 #import seaborn as sns
 
 colours = ['#31859C',   # FS1 & BS1
@@ -121,6 +122,19 @@ def quad_plot(csv, SI=False):
 
     s = 'SI' if SI else 'manuscript'
     fig.savefig('Quad_dG_{}.png'.format(s), dpi=300, transparent=True)
+
+def stats(csv):
+    dg_data = pd.read_csv(csv, sep=',')
+
+    # R-squared
+    r2 = metrics.r2_score(y_true, y_pred)
+    # RMSE
+    rmse = np.sqrt(metrics.mean_squared_error( ['Actual'], g['Predicted']))
+    # Pearson r
+    s1.corr(s2, method='pearson')
+    # Kendall tau
+    s1.corr(s2, method='kendall')
+
 
 if __name__ == "__main__":
     ddg_scatter('ddg_data.csv')
