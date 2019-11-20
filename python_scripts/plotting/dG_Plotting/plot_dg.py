@@ -137,11 +137,12 @@ def quad_plot(csv, SI=False):
 
 def stats(y_true, y_pred):
     # R-squared
-    r2 = metrics.r2_score(y_true, y_pred)
+    #r2 = metrics.r2_score(y_true, y_pred)
     # RMSE
     rmse = np.sqrt(metrics.mean_squared_error(y_true, y_pred))
     # Pearson r
     r = y_true.corr(y_pred, method='pearson')
+    r2 = r**2
     # Kendall tau
     tau = y_true.corr(y_pred, method='kendall')
 
@@ -154,33 +155,44 @@ def write_stats(csv):
     current = datetime.datetime.now()
     logfile = current.strftime("Statistics_%d-%b-%X.md")
     path = pathlib.Path('./'+logfile)
-    head = ("| Site | FS  |  R-squared |   RMSE   | Pearson *r* | Kendall *tau* |\n"
-            "|------|-----|------------|----------|-------------|---------------|\n")
+    head = ("| Site | FS |  R-squared | RMSE | Pearson *r* | Kendall *tau* | N |\n"
+            "|------|----|------------|------|-------------|---------------|---|\n")
     with path.open(mode='w+') as f:
         f.write("## Per Site Per FS\n")
         f.write(head)
         for site, group in grouped:
             print(type(site))
+            r, c = group.shape
             exp_val = group.exp
             fs1_val = group.fs1
             stat_list1 = stats(exp_val, fs1_val)
             print(stat_list1)
-            f.write('|{}| RHS |{}|\n'.format(site,' | '.join(['{:8.6f}'.format(n) for n in stat_list1])))
+            f.write('|{}| RHS |{}| {} |\n'
+                    .format(site,
+                            ' | '.join(['{:8.6f}'.format(n) for n in stat_list1]),
+                            r ))
             fs2_val = group.fs2
             stat_list2 = stats(exp_val, fs2_val)
-            f.write('| {} | LHS | {} |\n'.format(site,' | '.join(['{:8.6f}'.format(n) for n in stat_list2])))
+            f.write('| {} | LHS | {} | {} |\n'
+                    .format(site,
+                            ' | '.join(['{:8.6f}'.format(n) for n in stat_list2]),
+                            r))
 
-    head = ("| Method |  R-squared |   RMSE   | Pearson *r* | Kendall *tau* |\n"
-            "|--------|------------|----------|-------------|---------------|\n")
+    head = ("| Method | R-squared | RMSE | Pearson *r* | Kendall *tau* | N |\n"
+            "|--------|-----------|------|-------------|---------------|---|\n")
     with path.open(mode='a') as f:
         f.write("\n## Per Methodology (all sys)\n")
         f.write(head)
         for m in ['fs1', 'fs2', 'swish', 'comet']:
             df = dg_data.dropna(subset=['exp', m])
+            r, c = df.shape
             exp_val = df.exp
             m_val = df[m]
             stat_list = stats(exp_val, m_val)
-            f.write('| {} | {} |\n'.format(m, ' | '.join(['{:8.6f}'.format(n) for n in stat_list])))
+            f.write('| {} | {} | {} |\n'
+                    .format(m,
+                            ' | '.join(['{:8.6f}'.format(n) for n in stat_list]),
+                            r))
 
     cut = dg_data[dg_data['pdb'].isin(comet_codes)]
     with path.open(mode='a') as f:
@@ -188,13 +200,14 @@ def write_stats(csv):
         f.write(head)
         for m in ['fs1', 'fs2', 'swish', 'comet']:
             df = cut.dropna(subset=['exp', m])
+            r, c = df.shape
             exp_val = df.exp
             m_val = df[m]
             stat_list = stats(exp_val, m_val)
-            f.write('| {} | {} |\n'.format(m, ' | '.join(['{:8.6f}'.format(n) for n in stat_list])))
-
-
-
+            f.write('| {} | {} | {} |\n'
+                    .format(m,
+                            ' | '.join(['{:8.6f}'.format(n) for n in stat_list]),
+                            r))
 
 if __name__ == "__main__":
 
