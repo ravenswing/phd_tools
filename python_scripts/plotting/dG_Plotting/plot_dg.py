@@ -146,27 +146,25 @@ def stats(y_true, y_pred):
     # Kendall tau
     tau = y_true.corr(y_pred, method='kendall')
 
-    return [r2, rmse, r, tau]
+    return [r2, r, tau, rmse]
 
 def write_stats(csv):
     dg_data = pd.read_csv(csv, sep=',')
     grouped = dg_data.groupby('site')
 
     current = datetime.datetime.now()
-    logfile = current.strftime("Statistics_%d-%b-%X.md")
+    logfile = current.strftime("Statistics_%d%b-%H-%M.md")
     path = pathlib.Path('./'+logfile)
-    head = ("| Site | FS |  R-squared | RMSE | Pearson *r* | Kendall *tau* | N |\n"
-            "|------|----|------------|------|-------------|---------------|---|\n")
+    head = ("| Site | FS |  R-squared | Pearson *r* | Kendall *tau* | RMSE | N |\n"
+            "|------|----|------------|-------------|---------------|------|---|\n")
     with path.open(mode='w+') as f:
         f.write("## Per Site Per FS\n")
         f.write(head)
         for site, group in grouped:
-            print(type(site))
             r, c = group.shape
             exp_val = group.exp
             fs1_val = group.fs1
             stat_list1 = stats(exp_val, fs1_val)
-            print(stat_list1)
             f.write('|{}| RHS |{}| {} |\n'
                     .format(site,
                             ' | '.join(['{:8.6f}'.format(n) for n in stat_list1]),
@@ -178,8 +176,8 @@ def write_stats(csv):
                             ' | '.join(['{:8.6f}'.format(n) for n in stat_list2]),
                             r))
 
-    head = ("| Method | R-squared | RMSE | Pearson *r* | Kendall *tau* | N |\n"
-            "|--------|-----------|------|-------------|---------------|---|\n")
+    head = ("| Method | R-squared | Pearson *r* | Kendall *tau* | RMSE | N |\n"
+            "|--------|-----------|-------------|---------------|------|---|\n")
     with path.open(mode='a') as f:
         f.write("\n## Per Methodology (all sys)\n")
         f.write(head)
