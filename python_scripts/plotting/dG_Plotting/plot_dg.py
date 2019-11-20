@@ -16,6 +16,8 @@ colours = ['#31859C',   # FS1 & BS1
           ]
 
 labels = ["$\mathrm{F_{RHS}}$", "$\mathrm{F_{LHS}}$"]
+comet_codes = ['5alg', '5am3', '5aly', '5alp', '5aia', '5alt', '5akk',
+               '5akg',] # '5alx']
 
 def ddg_scatter(csv):
     """ Make custom scatter from ddG data """
@@ -103,8 +105,8 @@ def split_plot(csv):
 
 def quad_plot(csv, SI=False):
     """ Make manuscript and SI 2x2 plots of all methods """
-    comet_codes = ['5alg', '5am3', '5aly', '5alp', '5aia', '5alt', '5akk',
-                   '5akg',] # '5alx']
+    #comet_codes = ['5alg', '5am3', '5aly', '5alp', '5aia', '5alt', '5akk',
+#                   '5akg',] # '5alx']
     dg_data = pd.read_csv(csv, sep=',')
     fig = plt.figure(figsize=(10, 10))
     axes = fig.subplots(2, 2, sharex='col', sharey=True)
@@ -155,7 +157,6 @@ def write_stats(csv):
     head = ("| Site | FS  |  R-squared |   RMSE   | Pearson *r* | Kendall *tau* |\n"
             "|------|-----|------------|----------|-------------|---------------|\n")
     with path.open(mode='w+') as f:
-        
         f.write("## Per Site Per FS\n")
         f.write(head)
         for site, group in grouped:
@@ -164,22 +165,35 @@ def write_stats(csv):
             fs1_val = group.fs1
             stat_list1 = stats(exp_val, fs1_val)
             print(stat_list1)
-            f.write('|{}| RHS |{}|\n'.format(site,
-                                            ' | '.join([str(n) for n in stat_list1])))
+            f.write('|{}| RHS |{}|\n'.format(site,' | '.join(['{:8.6f}'.format(n) for n in stat_list1])))
             fs2_val = group.fs2
-            stat_list2 = stats(exp_val, fs2_val) 
-            f.write('| {} | LHS | {} |\n'.format(site,
-                                            ' | '.join([str(n) for n in stat_list2])))
-'''
+            stat_list2 = stats(exp_val, fs2_val)
+            f.write('| {} | LHS | {} |\n'.format(site,' | '.join(['{:8.6f}'.format(n) for n in stat_list2])))
+
+    head = ("| Method |  R-squared |   RMSE   | Pearson *r* | Kendall *tau* |\n"
+            "|--------|------------|----------|-------------|---------------|\n")
     with path.open(mode='a') as f:
         f.write("\n## Per Methodology (all sys)\n")
+        f.write(head)
         for m in ['fs1', 'fs2', 'swish', 'comet']:
             df = dg_data.dropna(subset=['exp', m])
             exp_val = df.exp
             m_val = df[m]
             stat_list = stats(exp_val, m_val)
-            f.write('{}\t{}\n'.format(m, '\t'.join([str(n) for n in stat_list])))
-'''
+            f.write('| {} | {} |\n'.format(m, ' | '.join(['{:8.6f}'.format(n) for n in stat_list])))
+
+    cut = dg_data[dg_data['pdb'].isin(comet_codes)]
+    with path.open(mode='a') as f:
+        f.write("\n## Per Methodology (9 sys only)\n")
+        f.write(head)
+        for m in ['fs1', 'fs2', 'swish', 'comet']:
+            df = cut.dropna(subset=['exp', m])
+            exp_val = df.exp
+            m_val = df[m]
+            stat_list = stats(exp_val, m_val)
+            f.write('| {} | {} |\n'.format(m, ' | '.join(['{:8.6f}'.format(n) for n in stat_list])))
+
+
 
 
 if __name__ == "__main__":
