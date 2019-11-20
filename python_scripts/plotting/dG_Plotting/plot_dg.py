@@ -139,6 +139,7 @@ def stats(y_true, y_pred):
     # R-squared
     #r2 = metrics.r2_score(y_true, y_pred)
     # RMSE
+    mae = metrics.mean_absolute_error(y_true, y_pred)
     rmse = np.sqrt(metrics.mean_squared_error(y_true, y_pred))
     # Pearson r
     r = y_true.corr(y_pred, method='pearson')
@@ -146,7 +147,7 @@ def stats(y_true, y_pred):
     # Kendall tau
     tau = y_true.corr(y_pred, method='kendall')
 
-    return [r2, r, tau, rmse]
+    return [r2, r, tau, mae, rmse]
 
 def write_stats(csv):
     dg_data = pd.read_csv(csv, sep=',')
@@ -155,8 +156,8 @@ def write_stats(csv):
     current = datetime.datetime.now()
     logfile = current.strftime("Statistics_%d%b-%H-%M.md")
     path = pathlib.Path('./'+logfile)
-    head = ("| Site | FS |  R-squared | Pearson *r* | Kendall *tau* | RMSE | N |\n"
-            "|------|----|------------|-------------|---------------|------|---|\n")
+    head = ("| Site | FS |  R-squared | Pearson *r* | Kendall *tau* | MAE | RMSE | N |\n"
+            "|------|----|------------|-------------|---------------|-----|------|---|\n")
     with path.open(mode='w+') as f:
         f.write("## Per Site Per FS\n")
         f.write(head)
@@ -176,8 +177,8 @@ def write_stats(csv):
                             ' | '.join(['{:8.6f}'.format(n) for n in stat_list2]),
                             r))
 
-    head = ("| Method | R-squared | Pearson *r* | Kendall *tau* | RMSE | N |\n"
-            "|--------|-----------|-------------|---------------|------|---|\n")
+    head = ("| Method | R-squared | Pearson *r* | Kendall *tau* | MAE | RMSE | N |\n"
+            "|--------|-----------|-------------|---------------|-----|------|---|\n")
     with path.open(mode='a') as f:
         f.write("\n## Per Methodology (all sys)\n")
         f.write(head)
