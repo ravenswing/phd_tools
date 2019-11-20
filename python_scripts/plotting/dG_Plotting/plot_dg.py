@@ -5,6 +5,8 @@ import numpy as np
 from numpy.polynomial import polynomial as P
 import matplotlib.pyplot as plt
 import pandas as pd
+import pathlib
+import datetime
 from sklearn import metrics
 #import seaborn as sns
 
@@ -90,9 +92,13 @@ def split_plot(csv):
             dg_scatter(axes[site, fs-1], to_plot, 'fs'+str(fs))
 
             fig.text(0.31+((fs-1)*0.41), 0.9, labels[fs-1], ha='center', fontsize=18)
-            fig.text(0.31+((fs-1)*0.41), 0.07, '$\mathrm{\Delta G_{exp}}$ / kcal $\mathrm{mol^{-1}}$', ha='center', fontsize=10)
+            fig.text(0.31+((fs-1)*0.41), 0.07,
+                     '$\mathrm{\Delta G_{exp}}$ / kcal $\mathrm{mol^{-1}}$',
+                     ha='center', fontsize=10)
 
-        fig.text(0.05, 0.24+(site*0.27), '$\mathrm{\Delta G_{calc}}$ / kcal $\mathrm{mol^{-1}}$', va='center', rotation='vertical', fontsize=10)
+        fig.text(0.05, 0.24+(site*0.27),
+                 '$\mathrm{\Delta G_{calc}}$ / kcal $\mathrm{mol^{-1}}$',
+                 va='center', rotation='vertical', fontsize=10)
     fig.savefig('FunMetaD_FSsplit_dG.png', dpi=300, transparent=True)
 
 def quad_plot(csv, SI=False):
@@ -116,28 +122,71 @@ def quad_plot(csv, SI=False):
 
     for i in [0,1]:
         # x label
-        fig.text(0.31+(i*0.41), 0.07, '$\mathrm{\Delta G_{exp}}$ / kcal $\mathrm{mol^{-1}}$', ha='center', fontsize=10)
+        fig.text(0.31+(i*0.41), 0.07,
+                 '$\mathrm{\Delta G_{exp}}$ / kcal $\mathrm{mol^{-1}}$',
+                 ha='center', fontsize=10)
         # y label
-        fig.text(0.05, 0.31+(i*0.41), '$\mathrm{\Delta G_{calc}}$ / kcal $\mathrm{mol^{-1}}$', va='center', rotation='vertical', fontsize=10)
+        fig.text(0.05, 0.31+(i*0.41),
+                 '$\mathrm{\Delta G_{calc}}$ / kcal $\mathrm{mol^{-1}}$',
+                 va='center', rotation='vertical', fontsize=10)
 
     s = 'SI' if SI else 'manuscript'
     fig.savefig('Quad_dG_{}.png'.format(s), dpi=300, transparent=True)
 
-def stats(csv):
-    dg_data = pd.read_csv(csv, sep=',')
-
+def stats(y_true, y_pred):
     # R-squared
     r2 = metrics.r2_score(y_true, y_pred)
     # RMSE
-    rmse = np.sqrt(metrics.mean_squared_error( ['Actual'], g['Predicted']))
+    rmse = np.sqrt(metrics.mean_squared_error(y_true, y_pred))
     # Pearson r
-    s1.corr(s2, method='pearson')
+    r = y_true.corr(y_pred, method='pearson')
     # Kendall tau
-    s1.corr(s2, method='kendall')
+    tau = y_true.corr(y_pred, method='kendall')
+
+    return [r2, rmse, r, tau]
+
+def write_stats(csv):
+    dg_data = pd.read_csv(csv, sep=',')
+    grouped = dg_data.groupby('site')
+
+    current = datetime.datetime.now()
+    logfile = current.strftime("Statistics_%d-%b-%X.md")
+    path = pathlib.Path('./'+logfile)
+    head = ("| Site | FS  |  R-squared |   RMSE   | Pearson *r* | Kendall *tau* |\n"
+            "|------|-----|------------|----------|-------------|---------------|")
+    with path.open(mode='w+') as f:
+        
+        f.write("## Per Site Per FS\n")
+        f.write(head)
+        for site, group in grouped:
+            print(type(site))
+            exp_val = group.exp
+            fs1_val = group.fs1
+            stat_list1 = stats(exp_val, fs1_val)
+            print(stat_list1)
+            f.write('|{}| RHS |{}|\n'.format(site,
+                                            ' | '.join([str(n) for n in stat_list1])))
+            fs2_val = group.fs2
+            stat_list2 = stats(exp_val, fs2_val) 
+            f.write('| {} | LHS | {} |\n'.format(site,
+                                            ' | '.join([str(n) for n in stat_list2])))
+'''
+    with path.open(mode='a') as f:
+        f.write("\n## Per Methodology (all sys)\n")
+        for m in ['fs1', 'fs2', 'swish', 'comet']:
+            df = dg_data.dropna(subset=['exp', m])
+            exp_val = df.exp
+            m_val = df[m]
+            stat_list = stats(exp_val, m_val)
+            f.write('{}\t{}\n'.format(m, '\t'.join([str(n) for n in stat_list])))
+'''
 
 
 if __name__ == "__main__":
-    ddg_scatter('ddg_data.csv')
-    split_plot('dg_values.csv')
-    quad_plot('dg_values.csv')
-    quad_plot('dg_values.csv', SI=True)
+
+    #ddg_scatter('ddg_data.csv')
+    #split_plot('dg_values.csv')
+    #quad_plot('dg_values.csv')
+    #quad_plot('dg_values.csv', SI=True)
+
+    write_stats('dg_values.csv')
