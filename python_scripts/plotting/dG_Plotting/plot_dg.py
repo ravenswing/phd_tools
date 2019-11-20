@@ -153,7 +153,7 @@ def write_stats(csv):
     logfile = current.strftime("Statistics_%d-%b-%X.md")
     path = pathlib.Path('./'+logfile)
     head = ("| Site | FS  |  R-squared |   RMSE   | Pearson *r* | Kendall *tau* |\n"
-            "|------|-----|------------|----------|-------------|---------------|")
+            "|------|-----|------------|----------|-------------|---------------|\n")
     with path.open(mode='w+') as f:
         
         f.write("## Per Site Per FS\n")
