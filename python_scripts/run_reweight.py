@@ -97,7 +97,7 @@ tpr = "{}/{}".format(wd, ARGS.tpr)             # tpr file used in the simulation
 ndx = "{}/index_{}.ndx".format(wd, PDB)      # index file for the current system
 #ndx = "{}/i.ndx".format(wd)      # index file for the current system
 out_name = "{}/{}_OUT.pdb".format(wd, stem) # OUT pdb name
-DATA_FILE = 'dG_database.h5' if SWISH_NREPS is None else 'SWISH_dG.csv'
+DATA_FILE = 'dG_database.h5' if SWISH_NREPS is None else 'SWISH_dG_{}ns.csv'.format(TIME)
 
 # if using -download:
 # store of username@address for ssh and rsync, keys = remote server name
@@ -758,7 +758,10 @@ def SWISH_process_delta_g(data_file, in_out_cutoff=None):
         database = database.append(df, ignore_index=True) 
 
     res_num = 0 
-    for fes_file in sorted(glob.glob('{}/FES/*300ns.fes'.format(wd)),\
+    #extra_dir = './'
+    #extra_dir = './500ns'
+    extra_dir = './500ns-NO_CMAP' 
+    for fes_file in sorted(glob.glob('{}/{}/FES/*{}ns.fes'.format(extra_dir, wd, TIME)),\
                     key=lambda name: int(name.split('/')[-1].split('_')[0])):
         basinA = bsn.loc[(bsn.pdb == PDB) & (bsn.funnel == FS)].A.values[0]
         basinB = bsn.loc[(bsn.pdb == PDB) & (bsn.funnel == FS)].B.values[0]
@@ -980,10 +983,10 @@ if __name__ == '__main__':
 
     # SWISH demuxing & analysis
     else:
-        #run_sumhills(SWISH_NREPS, mode='SWISH')
-        #demux(SWISH_NREPS)
-        #driver_demux(SWISH_NREPS)
-        #energy_to_xvg(SWISH_NREPS)
-        SWISH_process_delta_g(DATA_FILE, '2D')
+        run_sumhills(SWISH_NREPS, mode='SWISH')
+        demux(SWISH_NREPS)
+        driver_demux(SWISH_NREPS)
+        energy_to_xvg(SWISH_NREPS)
+        #SWISH_process_delta_g(DATA_FILE, '2D')
     
         

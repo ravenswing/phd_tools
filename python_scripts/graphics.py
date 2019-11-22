@@ -7,6 +7,7 @@
 from math import ceil
 import re
 import numpy as np
+from scipy.interpolate import griddata
 from numpy.polynomial import polynomial as P
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -61,19 +62,49 @@ def single_diffusion_plots(colvar_data, pdb, funnel_side, num_cvs, save_dir):
 
 def two_cv_contour(fes, pdb, funnel_side, axes, in_vmax, name, save_dir, ax):
     """ Plot a contour plot for 2 CVs"""
+    x = fes[:, 0]
+    y = fes[:, 1]
+    z = fes[:, 2]
+    
 
-    fes[2] = fes[2]/4.184
-    max_non_inf = np.amax(fes[2][np.isfinite(fes[2])])
+    z = np.array(z/4.184)
+    z = np.subtract(z, min(z))
+    max_non_inf = np.amax(z[np.isfinite(z)])
     print('VMAX: ', max_non_inf)
     x_name, y_name = axes
-    vmax = int(ceil(max_non_inf / 2.0)) * 2 if 'REW' in name else in_vmax
+    #vmax = int(ceil(max_non_inf / 2.0)) * 2 if 'REW' in name else in_vmax
+    vmax = in_vmax
     #vmax = 50
+    x = np.array([nm*10 for nm in x])
+    y = np.array([nm*10 for nm in y])
+    
+    xgrid = int(np.sqrt(len(x))-1)
+    ygrid = int(np.sqrt(len(y))-1)
+   # xgrid = 300
+   # ygrid = 300
+    
+    xi = np.linspace(min(x), max(x), xgrid)
+    yi = np.linspace(min(y), max(y), ygrid)
+    
+    maxz = 0
+    for ndx, v in enumerate(z):
+        if np.isfinite(z[ndx]):
+            if z[ndx] > maxz:
+                maxz = z[ndx]
 
-    x, y = np.meshgrid([nm*10 for nm in fes[0]], [nm*10 for nm in fes[1]])
+    for ndx, v in enumerate(z):
+        if np.isinf(z[ndx]):
+            z[ndx] = maxz
+
+
+    xi, yi = np.meshgrid(xi, yi)
+    print(x.shape, y.shape, z.shape, xi.shape, yi.shape,)
+    zi = griddata((x,y), z, (xi, yi), method='linear')
 
     iso = round(2*max_non_inf/12)/2
-
-    conts = np.arange(0., vmax+1, 2.0)
+    
+    conts = np.arange(0.001, vmax+1, 2.0)
+    #conts = np.arange(0.001, max(z)+1, 2.0)
 
     f_x = np.linspace(0.0, 45, 1000) # funnel lower & upper walls
     sc = 30
@@ -83,8 +114,8 @@ def two_cv_contour(fes, pdb, funnel_side, axes, in_vmax, name, save_dir, ax):
     f_y = h*(1./(1.+np.exp(b*(f_x-sc))))+f
 
 #    ax = fig.add_subplot(plot_n, sharex=True, sharey=True)
-    CS = ax.contourf(x, y, fes[2], conts, cmap='RdYlBu', antialiased=True)
-    ax.contour(x, y, fes[2], conts, colors='k', linewidths=0.5, alpha=0.5,
+    CS = ax.contourf(xi, yi, zi, conts, cmap='RdYlBu', antialiased=True)
+    ax.contour(xi, yi, zi, conts, colors='k', linewidths=0.5, alpha=0.5,
                antialiased=True)
     if 'REW' not in name:
         ax.plot(f_x, f_y, 'k')
@@ -93,9 +124,9 @@ def two_cv_contour(fes, pdb, funnel_side, axes, in_vmax, name, save_dir, ax):
         #ax.set_title('{m}  |  {}'.format(funnel_side, m=pdb))
     else:
         print('?')
-        #plt.xlim(-0.2, 5.0)
-        #plt.ylim(-0.1, 2.0)
-        ax.set_ylabel(y_name+' / nm')
+        #plt.xlim(-2., 50.)
+        plt.ylim(0., 70.)
+        ax.set_ylabel('$\mathrm{RMSD_{OUT}}$ / $\mathrm{\AA}$')
         #ax.title('{m}  |  {}  |  Reweighted Free Energy Surface'.format(funnel_side, m=pdb))
     ax.grid()
     return CS

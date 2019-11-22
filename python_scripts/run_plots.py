@@ -115,13 +115,14 @@ def fes_highlight(pdb):
             directory = '{}_{}'.format(pdb, fs)
             plot_num = int(''.join(['2', str(len(fes_list)), str(n)]))
             print(plot_num)
-            fes_data, axis_labels = load.fes("{}/{}-{}_{}.fes".format(directory, pdb, fs, fes_type), is_rew)
+            fes_data = load.fes_simple("{}/{}-{}_{}.fes".format(directory, pdb, fs, fes_type), is_rew)
+            axis_labels = ['pp.proj', 'pp.ext'] if not is_rew else ['RMSD OUT', 'RMSD IN']
             cmap = gr.two_cv_contour(fes_data, pdb, fs, axis_labels, cbar_max, 'OLD_{}'.format(fes_type), "Figures/{}".format(directory), axes[f,n])
             f += 1
-        n += 1
-    plt.subplots_adjust(left=0.15)
+        n += 1 
+    fig.subplots_adjust(hspace=0.05, wspace=0.17, left=0.15, right=0.915)
     labels = {'OLD':['Raw Data', 'pp.proj / $\mathrm{\AA}$'],
-              'REW':['Reweighted', axis_labels[0]+' / $\mathrm{\AA}$'],
+              'REW':['Reweighted', '$\mathrm{RMSD_{IN}}$ / $\mathrm{\AA}$'],
              }
     # Y LABELS
     for i in [0, 1]:
@@ -133,8 +134,6 @@ def fes_highlight(pdb):
         fig.text(0.33+(i*0.41), 0.9, labels[fes_list[i]][0], ha='center', fontsize=14)
         fig.text(0.33+(i*0.41), 0.065, labels[fes_list[i]][1], ha='center', fontsize=10)
 
-    fig.subplots_adjust(hspace=0.05, wspace=0.15)
-    fig.subplots_adjust(right=0.915)
     cax = plt.axes([0.93, 0.11, 0.01, 0.77])
     cbar = plt.colorbar(cmap, cax=cax, aspect=10, ticks=np.arange(0., cbar_max+1, 2.0))
     cbar.set_label('Free Energy / kcal $\mathrm{mol^{-1}}$', fontsize=10)
@@ -446,6 +445,9 @@ if __name__ == "__main__":
         print("")
         #fes_multiplot(pdb_list, cbar_max=22)
 
+    #### FES HIGHLIGHTS ####
+    fes_highlight('5akk')
+
 
     
     #### CONVERGENCE MULTIPLOTS ####
@@ -461,7 +463,7 @@ if __name__ == "__main__":
     # dif_multiplot2(core_list, cv='proj')
 
     #### 5AM0 PLOTS ####
-    highlight5am0(cbar_max=22)
+    #highlight5am0(cbar_max=22)
 
     #highlight5am0_dgdt()
 
@@ -480,5 +482,3 @@ if __name__ == "__main__":
     #SWISH_energies('5akk', 6)
     #SWISH_exchange('5akk',6) 
     
-    #### FES HIGHLIGHTS ####
-    #fes_highlight('5akk')

@@ -74,6 +74,9 @@ def fes(filename, is_rew):
     fes[2] = np.asarray(z)
     return fes, [x_name, y_name]
 
+def fes_simple(filename, is_rew):
+    fes = np.loadtxt(filename)
+    return fes
 
 def xvg(filename):
     """ load xvg """
