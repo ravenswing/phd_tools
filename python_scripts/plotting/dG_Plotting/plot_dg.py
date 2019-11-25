@@ -212,7 +212,9 @@ if __name__ == "__main__":
 
     #ddg_scatter('ddg_data.csv')
     #split_plot('dg_values.csv')
-    #quad_plot('dg_values.csv')
+    quad_plot('dg_values.csv')
+    #quad_plot('dg_values500.csv')
     #quad_plot('dg_values.csv', SI=True)
 
     write_stats('dg_values.csv')
+    #write_stats('dg_values500.csv')
