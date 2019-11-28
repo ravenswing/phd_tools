@@ -11,54 +11,85 @@ import os
 import glob
 import sys
 import pathlib
+from itertools import repeat
 
-
-
- ###############################################################################
- #                                   INPUTS
- ###############################################################################
+###############################################################################
+#                                   INPUTS
+###############################################################################
 
 # Source directory for the files on your local system
-SRCDIR = '/media/rhys/ExtHD/Project/carlos_peptides/LONG/hydrophobic_brush/unbiased/'
+SRCDIR = '/home/rhys/Desktop/gpfs/rhys/Project/Peptides/carlos_peptides/fibrils/'
 
-#mol = 'brush_3HIS+GLYx3_4x4_0.0A'
-#mol = 'brush_3HIS+GLYx3_Ncapped_4x4_0.0A'
+# mol = 'brush_3HIS+GLYx3_4x4_0.0A'
+# mol = 'brush_3HIS+GLYx3_Ncapped_4x4_0.0A'
 FIGDIR = '{}figures/'.format(SRCDIR)
-num_pep = 16
+NUM_RES = 16
+NUM_PEP = 9
 # default_x = np.linspace(0,2500000.0,num=25001)
-#plt.style.use('dark_background')
-
-
+# plt.style.use('dark_background')
 
 ##############################################################################
 #                               PROCESSING HELICITY
 ##############################################################################
 
-def processHelicity (SRCDIR, mol, frames):
-    print("Processing Helicity")
-    col = ['pep'+str(x+1) for x in range(num_pep)]
-    df = pd.DataFrame(columns=col)
-    print(df.head())
-    xtc = '{}{m}/05-MD/MD_final.xtc'.format(SRCDIR, m=mol)
-    topol = '{}{m}/05-MD/{m}_protein.gro'.format(SRCDIR, m=mol)
+
+def processHelicity(traj, gro, num_pep, frames):
+    print("{:8}{m}".format('INFO:',
+                           m='Processing Helicity'))
+
+    npep = num_pep
+    nres = pep_length
+    pep = ['pep'+str(x+1) for x in range(npep)]
+    multipep = [x for item in pep for x in repeat(item, nres)]
+    res = ['res'+str(x+1) for x in range(nres)]
+    multires = []
+    for i in np.arange(nres):
+        multires.extend(res)
+        i += 1
+    arrays = [multipep, multires]
+    tuples = list(zip(*arrays))
+    index = pd.MultiIndex.from_tuples(tuples, names=['Peptide', 'Residue'])
+    data = pd.DataFrame(columns=index)
+
+    xtc = str(traj)
+    topol = str(gro)
 
     for chunk in md.iterload(xtc, 100, top=topol):
-        in_data = np.empty((100, num_pep))
+        df = pd.DataFrame(columns=index)
         for i in range(num_pep):
-            peptide_chunk = chunk.atom_slice(chunk.top.select("resid {} to {}".format(i*pep_length, (i+1)*pep_length-1)))
+
+            peptide_chunk = chunk.atom_slice(
+                                chunk.top.select("resid {} to {}"
+                                                 .format(i*pep_length,
+                                                         (i+1)*pep_length-1)))
             dssp = md.compute_dssp(peptide_chunk, simplified=False)
-           # helicity = (dssp == 'H') | (dssp == 'G') | (dssp == 'I')
-            helicity = (dssp == 'E') | (dssp == 'B')
-            in_data[:, i] = np.sum(helicity, axis=1)/1.0
-        df = df.append(pd.DataFrame(in_data, columns=col), ignore_index=True)
-    df['tot_hel'] = df.sum(axis=1)
-    print(df.head())
-    print(df.shape)
-    #df.iloc[:frames, :].to_csv(mol+'_hel_data.csv')
-    df.iloc[:frames, :].to_csv(mol+'_strand_data.csv')
+            # helicity = (dssp == 'H') | (dssp == 'G') | (dssp == 'I')
+            #helicity = (dssp == 'E') | (dssp == 'B')
+            #in_data[:, i] = np.sum(helicity, axis=1)/1.0 
+            #new_rows = pd.DataFrame(columns=col) 
+            for j in np.arange(nres):
+                df['pep'+str(i+1), 'res'+str(j+1)] = pd.Series(dssp[:, j]).fillna(0)
+        #print(df.head())
+        #print(df.shape)
+        data = data.append(df)
 
 
-def processHBonds(mol,limit):
+    #df['tot_hel'] = df.sum(axis=1)
+    return data
+    #df.iloc[:frames, :].to_csv(mol+'_strand_data.csv')
+
+def process_Dist():
+
+    pep_length = 293
+    diff = 197
+
+    pairs = np.empty((NUM_PEP, 2))
+    for n in np.arange(NUM_PEP):
+        pairs[n,:] =  [5+n*pep_length, (5+diff)+n*pep_length]
+    return pairs
+
+
+def processHBonds(mol, limit):
     print("Processing Hydrogen Bonds")
     arcdir = SRCDIR+'ARC_files/'
     # mode = 'salt_bridges'
@@ -175,7 +206,7 @@ def run(processing, mol):
         fig.savefig(FIGDIR+mol+'_double_plot.png', bbox_inches='tight', transparent=True, dpi=300)
 
 
-'''
+
     fig2, ax2 = plt.subplots(figsize=(20, 16))
     for d in ['capd', 'uncapd']:
         ax2.plot(data[d+'_rm'], color=col[d], linewidth=4.0, zorder=21)
@@ -193,10 +224,47 @@ def run(processing, mol):
     ax2.legend(['N Terminal Capped', 'Uncapped'], fontsize=font_sizes[1])
     plt.yticks(fontweight='medium', fontsize=font_sizes[1])
     fig2.savefig(FIGDIR+uncapped_name+"_COMBIND.png", bbox_inches='tight', transparent=True, dpi=300)
-'''
+
+def analyse_trajectories():
+    hydrophobics = ['I', 'F', 'W']
+    orientations = ['PARA', 'INVERTED']
+    for hyd in hydrophobics:
+        for ornt in orientations:
+            traj = SRCDIR + 'EK-{h}H/{o}/EK-{h}H_h2o/05-MD/EK-{h}H_{o}_cut.xtc'.format(h=hyd, o=ornt)
+            gro = SRCDIR + 'EK-{h}H/{o}/EK-{h}H_h2o/05-MD/EK-{h}H_h2o_protein.gro'.format(h=hyd, o=ornt)
+            df = processHelicity(traj, gro, 9, 200000)
+            df.to_hdf(SRCDIR + 'EK-{h}H_{o}_raw.h5'.format(h=hyd, o=ornt), key='raw')
+
 
 if __name__ == "__main__":
-    PROCESSING = [False, False]
+
+    #analyse_trajectories()
+    print(process_Dist())
+'''
+    hydrophobics = ['I', 'F', 'W']
+    orientations = ['PARA', 'INVERTED']
+    for hyd in hydrophobics:
+        for ornt in orientations:
+            with open('Stats.dat', 'a+') as f:
+                f.write('\nEK-{}H  {} \n'.format(hyd, ornt))
+
+            df = pd.read_hdf(SRCDIR + 'EK-{h}H_{o}_raw.h5'.format(h=hyd, o=ornt), key='raw')
+
+            for s in pd.unique(df.values.ravel('K')):
+                phobic_total = 0
+                philic_total = 0
+                for i in np.arange(NUM_PEP):
+                    for j in np.arange(NUM_RES):
+                        count = df['pep'+str(i+1), 'res'+str(j+1)].str.count(s).sum()
+                        if j <= 11:
+                            phobic_total += count
+                        else:
+                            philic_total += count
+                with open('Stats.dat', 'a+') as f:
+                    f.write('   {}  HPHOBIC: {:5.2f}%  HPHILIC {:5.2f}%\n'.format(s, 100*phobic_total/2160000, 100*philic_total/720000))
+
+'''
+    #PROCESSING = [False, False]
     #run(PROCESSING, mol)
 
     #for mol in ['brush_3HIS+GLYx3_4x4_0.0A', 'brush_3HIS+GLYx3_Ncapped_4x4_0.0A']:
