@@ -45,14 +45,9 @@ from matplotlib import text, patheffects
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
-#if sys.version_info[0] < 3:
-    #import Tkinter as Tk
-#else:
-    #import tkinter as Tk
-
 
 parser = argparse.ArgumentParser(description="Plot 2D Free Energy",
-                                 formatter_class=lambda prog: \
+                                 formatter_class=lambda prog:
                                  argparse.HelpFormatter(prog,
                                                         max_help_position=35))
 parser.add_argument("fes", help="name of the fes file",
@@ -89,9 +84,11 @@ parser.add_argument("--scale", help="scale factor for axes", type=float,
 parser.add_argument("-di", "--interface", help="Start Driver Interface",
                     action='store_true')
 
+
 def destroy(e):
     """ EXIT """
     sys.exit()
+
 
 if os.path.exists("_conf_"):
     config = SafeConfigParser()
@@ -101,7 +98,7 @@ if os.path.exists("_conf_"):
     defaults = dict(config.items("Default"))
 
     for key in defaults:
-        print("Read %s for %s (defaults[%s])" %(defaults[key], key, key))
+        print("Read %s for %s (defaults[%s])" % (defaults[key], key, key))
         deflist = defaults[key].split(",")
         if len(deflist) > 1:
             defaults[key] = defaults[key].split(",")
@@ -120,9 +117,11 @@ rcParams.update({'font.size': 18})
 #prop = matplotlib.font_manager.FontProperties(fname=path)
 #rcParams['font.family'] = prop.get_name()
 
+
 def fes_connect(fig):
     """ connect FESs """
     cid = fig.canvas.mpl_connect('button_press_event', onclick)
+
 
 def main():
     """ Main """
@@ -131,7 +130,8 @@ def main():
     if isinstance(args.fes, str):
         if args.summary:
             inpfes = glob.glob('fes*')
-        else: inpfes = [args.fes]
+        else:
+            inpfes = [args.fes]
     else:
         inpfes = args.fes
 
@@ -139,15 +139,14 @@ def main():
 
     def stringSplitByNumbers(x):
         r = re.compile('(\d+)')
-        l = r.split(x)
-        return [int(y) if y.isdigit() else y for y in l]
+        spltlist = r.split(x)
+        return [int(y) if y.isdigit() else y for y in spltlist]
 
     inpfes = sorted(inpfes, key=stringSplitByNumbers)
     if args.summary:
         inpfes = inpfes[-9:]
 
     print("Files: %s" % inpfes)
-
 
     (rows, cols, width, height) = setup_figure(inpfes)
     fig = plt.figure(figsize=(width, height), dpi=60)
@@ -156,8 +155,8 @@ def main():
     zcoord = []
 
     for FE in inpfes:
-        nnn = nnn +1
-        data = loadtxt(FE);
+        nnn = nnn + 1
+        data = loadtxt(FE)
         x = data[:, 0]
         y = data[:, 1]
         z = data[:, 2]
@@ -171,12 +170,12 @@ def main():
             xgrid = int(subprocess.check_output(cmd, shell=True))
             cmd = "awk '!/#/{ RS=\"\"; FS=\"\\n\"}END{print NR}' %s " % FE
             ygrid = int(subprocess.check_output(cmd, shell=True))
-            #failsafe
+            # failsafe
             if (xgrid > 600 or ygrid > 600):
                 xgrid = int(sqrt(len(x))-1)
                 ygrid = int(sqrt(len(y))-1)
 
-        print("dim = %.1f x %.1f  " % (xgrid, ygrid)) #,len(x),len(y))
+        print("dim = %.1f x %.1f  " % (xgrid, ygrid))  # len(x),len(y))
 
         if not args.kcal:
             print("FES is in kJ/mol, converting to kcal/mol")
@@ -200,18 +199,17 @@ def main():
 
         for ndx, v in enumerate(z):
             if isinf(z[ndx]):
-                z[ndx] = maxz #*1.5
+                z[ndx] = maxz  # *1.5
 
         if args.forcemax:
             for ndx, v in enumerate(z):
                 if z[ndx] > maxz*0.98:
                     z[ndx] = args.forcemax
 
-        #export xyz
+        # export xyz
         xcoord.append(x[:])
         ycoord.append(y[:])
         zcoord.append(z[:])
-
 
         print("max G = %.2f " % maxz)
         maxi = max(z)
@@ -225,8 +223,7 @@ def main():
             yi = np.linspace(min(y), max(y), ygrid)
         xi, yi = np.meshgrid(xi, yi)
         # generate the grid, interpolate if necessary
-        #zi = griddata(x, y, z, xi, yi)
-        zi = griddata((x, y), z, (xi, yi), method='linear') 
+        zi = griddata((x, y), z, (xi, yi), method='linear')
         #######################################################
         if nnn == 1:
             aaxx = fig.add_subplot(rows, cols, nnn)
@@ -234,7 +231,7 @@ def main():
                 aaxx.yaxis.tick_right()
                 aaxx.yaxis.set_label_position("right")
         else:
-            aazz = fig.add_subplot(rows, cols, nnn) #,sharex=aaxx,sharey=aaxx)
+            aazz = fig.add_subplot(rows, cols, nnn)  # sharex=aaxx,sharey=aaxx)
             if args.compact:
                 aazz.yaxis.tick_right()
                 aazz.yaxis.set_label_position("right")
@@ -291,12 +288,10 @@ def main():
         else:
             plt.xlabel("CV1", labelpad=10)
 
-
         if args.ylab:
             plt.ylabel(args.ylab, labelpad=10)
         else:
             plt.ylabel("CV2", labelpad=10)
-
 
         if args.lim:
             for index, item in enumerate(args.lim):
@@ -305,7 +300,6 @@ def main():
 
         if args.A and args.B:
             dg = delta_g(x, y, z)
-            #t = plt.text(5, 5, "DG = %6.2f" % (dg), fontdict=None)
             if args.title:
                 plt.title("%s (DG = %6.2f kcal/mol)" % (args.title, dg))
             else:
@@ -324,23 +318,24 @@ def main():
         cb.set_label(r'Free Energy')
     else:
         fig.subplots_adjust(right=0.92, left=0.08, top=0.95, bottom=0.05)
-    return {'fig':fig, 'x':xcoord, 'y':ycoord, 'z':zcoord, 'r':rows, 'c':cols}
-
+    return {'fig': fig, 'x': xcoord, 'y': ycoord, 'z': zcoord,
+            'r': rows, 'c': cols}
 ###############################################################################
+
+
 def save_figure():
     """ save the figure """
     if args.aspect:
         aspecto = args.aspect
         print("aspect %s" % aspecto)
         aspect = aspecto.split(':')
-
         print("aspect %3f:%3f" % (float(aspect[0]), float(aspect[1])))
         fig.set_size_inches(aspect[0], aspect[1])
-
     #fig = matplotlib.pyplot.gcf()
     plt.savefig(args.out, dpi=600, bbox_inches='tight', pad_inches=0)
-
 ###############################################################################
+
+
 def setup_figure(inpfes):
     """ prepare 3xZ matrix of FEs """
     if len(inpfes) < 3:
@@ -373,6 +368,8 @@ def setup_figure(inpfes):
 
     return (rows, cols, width, height)
 ###############################################################################
+
+
 def get_g_value(gx, gy, sub):
     """ get the g value """
 
@@ -393,13 +390,15 @@ def get_g_value(gx, gy, sub):
     print("Closest point is {%.3f, %.3f} with G = %.3f"
           % (get_x, get_y, get_g))
     return get_g
-
 ###############################################################################
+
+
 def basin_fill(basin_list):
     """ Fill basins """
     fill([basin_list[0], basin_list[1], basin_list[1], basin_list[0]],
          [basin_list[2], basin_list[2], basin_list[3], basin_list[3]],
          'k', alpha=0.25, edgecolor='k', facecolor="none", lw="5.")
+
 
 def basin_fill_ax(basin_list, ax):
     """ fill basins of axis """
@@ -526,7 +525,7 @@ def onclick(event):
             del box[:]
             #print "len of box reset to %d" % len(box)
             print("DG reset... ")
-        box.extend([event.xdata, event.ydata]) 
+        box.extend([event.xdata, event.ydata])
         ax = event.inaxes
         ss = get_sub(ax)
         #print "subplot is %d" % int(ss+1)

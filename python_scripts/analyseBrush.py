@@ -33,12 +33,15 @@ NUM_PEP = 9
 ##############################################################################
 
 
-def processHelicity(traj, gro, num_pep, frames):
+def processHelicity(traj, gro, frames):
     print("{:8}{m}".format('INFO:',
                            m='Processing Helicity'))
-
-    npep = num_pep
-    nres = pep_length
+    # get external constants
+    npep = NUM_PEP
+    nres = NUM_RES
+    # define indexing for the dataframe:
+    # |           pep1          |           pep2          |... <- to npep
+    # |  res1  |  res2  |  ...  |  res1  |  res2  |  ...  |... <- to nres
     pep = ['pep'+str(x+1) for x in range(npep)]
     multipep = [x for item in pep for x in repeat(item, nres)]
     res = ['res'+str(x+1) for x in range(nres)]
@@ -49,34 +52,33 @@ def processHelicity(traj, gro, num_pep, frames):
     arrays = [multipep, multires]
     tuples = list(zip(*arrays))
     index = pd.MultiIndex.from_tuples(tuples, names=['Peptide', 'Residue'])
+    # make dataframe for output using defined indexing
     data = pd.DataFrame(columns=index)
-
+    # convert Path input to string for mdtraj
     xtc = str(traj)
     topol = str(gro)
-
+    # load traj in chunks of timestamps...
     for chunk in md.iterload(xtc, 100, top=topol):
         df = pd.DataFrame(columns=index)
-        for i in range(num_pep):
-
+        # ...and one peptide at a time
+        for i in range(npep):
             peptide_chunk = chunk.atom_slice(
                                 chunk.top.select("resid {} to {}"
-                                                 .format(i*pep_length,
-                                                         (i+1)*pep_length-1)))
+                                                 .format(i*nres,
+                                                         (i+1)*nres-1)))
+            # compute the DSSP values
             dssp = md.compute_dssp(peptide_chunk, simplified=False)
-            # helicity = (dssp == 'H') | (dssp == 'G') | (dssp == 'I')
-            #helicity = (dssp == 'E') | (dssp == 'B')
-            #in_data[:, i] = np.sum(helicity, axis=1)/1.0 
-            #new_rows = pd.DataFrame(columns=col) 
+            # add data to new dataframe - store values per timestamp chunk
             for j in np.arange(nres):
                 df['pep'+str(i+1), 'res'+str(j+1)] = pd.Series(dssp[:, j]).fillna(0)
-        #print(df.head())
-        #print(df.shape)
+        # add data to output dataframe
         data = data.append(df)
-
-
-    #df['tot_hel'] = df.sum(axis=1)
     return data
     #df.iloc[:frames, :].to_csv(mol+'_strand_data.csv')
+    # helicity = (dssp == 'H') | (dssp == 'G') | (dssp == 'I')
+    #helicity = (dssp == 'E') | (dssp == 'B')
+    #in_data[:, i] = np.sum(helicity, axis=1)/1.0 
+    #new_rows = pd.DataFrame(columns=col) 
 
 def process_Dist():
 
@@ -232,7 +234,7 @@ def analyse_trajectories():
         for ornt in orientations:
             traj = SRCDIR + 'EK-{h}H/{o}/EK-{h}H_h2o/05-MD/EK-{h}H_{o}_cut.xtc'.format(h=hyd, o=ornt)
             gro = SRCDIR + 'EK-{h}H/{o}/EK-{h}H_h2o/05-MD/EK-{h}H_h2o_protein.gro'.format(h=hyd, o=ornt)
-            df = processHelicity(traj, gro, 9, 200000)
+            df = processHelicity(traj, gro, 200000)
             df.to_hdf(SRCDIR + 'EK-{h}H_{o}_raw.h5'.format(h=hyd, o=ornt), key='raw')
 
 
