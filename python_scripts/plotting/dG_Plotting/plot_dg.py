@@ -135,6 +135,50 @@ def quad_plot(csv, SI=False):
     s = 'SI' if SI else 'manuscript'
     fig.savefig('Quad_dG_{}.png'.format(s), dpi=300, transparent=True)
 
+
+def swish_diftimes(timestamps, exclusions=None):
+    """ Make custom scatter dG values """
+    fig = plt.figure(figsize=(4.5, 4))
+    ax = plt.axes()
+    x = np.linspace(-20, 10, 100)
+
+    markers = {300: 'D', 500: 'x', 1000: 'P'}
+    for t in timestamps:
+        csv = 'dg_values.csv' if t == 300 else 'SWISH_dG_{}ns.csv'.format(t)
+        dg_data = pd.read_csv(csv, sep=',')
+        df = dg_data[~dg_data['pdb'].isin(exclusions)]\
+            if exclusions is not None else dg_data
+        ax.scatter(x='exp', y='swish', data=df,
+                   marker=markers[t], s=8, c='k', label=str(t), zorder=2)
+
+        for i, j, n in zip(df['exp'], df['swish'], df['pdb']):
+            if j < i+3.7 and j > i-3.7: continue
+            if j > i:
+                ax.annotate(n, (i, j), xytext=(-5,0), textcoords='offset points',
+                            size=8, ha='right', va="bottom")
+            else:
+                ax.annotate(n, (i, j), xytext=(5, 0), textcoords='offset points',
+                            size=8, ha='left', va="bottom")
+
+    ax.plot(x, x, 'k')
+    ax.fill_between(x, x+2, x-2, facecolor='xkcd:green', alpha=0.1)
+    ax.plot(x, x+2, c='xkcd:green', alpha=0.2)
+    ax.plot(x, x-2, c='xkcd:green', alpha=0.2)
+    ax.fill_between(x, x+2, x+3.5, facecolor='xkcd:orange', alpha=0.1)
+    ax.plot(x, x+3.5, c='xkcd:orange', alpha=0.2)
+    ax.fill_between(x, x-2, x-3.5, facecolor='xkcd:orange', alpha=0.1)
+    ax.plot(x, x-3.5, c='xkcd:orange', alpha=0.2)
+    # adjust scatter
+    ax.set_xlim([-20, 5.0])
+    ax.set_ylim([-20, 5.0])
+    ax.grid(alpha=0.5)
+    # add labels
+    ax.set_ylabel('Calculated $\Delta$G / kcal mol$^{-1}$')
+    ax.set_xlabel('Experimental $\Delta$G / kcal mol$^{-1}$')
+    s = '_ALL' if exclusions is None else '_NOT'+('_').join(exclusions)
+    fig.savefig('SWISH_Times_dG{}.png'.format(s), dpi=300, transparent=True)
+
+
 def stats(y_true, y_pred):
     # R-squared
     #r2 = metrics.r2_score(y_true, y_pred)
@@ -212,9 +256,11 @@ if __name__ == "__main__":
 
     #ddg_scatter('ddg_data.csv')
     #split_plot('dg_values.csv')
-    quad_plot('dg_values.csv')
+    #quad_plot('dg_values.csv')
     #quad_plot('dg_values500.csv')
     #quad_plot('dg_values.csv', SI=True)
+    swish_diftimes([300, 500])
+    swish_diftimes([300, 500], ['5am3', '5aly', '5am0'])
 
-    write_stats('dg_values.csv')
+    #write_stats('dg_values.csv')
     #write_stats('dg_values500.csv')

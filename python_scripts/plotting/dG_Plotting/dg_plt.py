@@ -1,4 +1,3 @@
-
 import numpy as np
 from numpy.polynomial import polynomial as P
 import matplotlib.pyplot as plt
@@ -64,7 +63,7 @@ def dg_scatter(ax, df):
     """ Make custom scatter dG values """
 
     #swish_codes = ['5alg', '5am3', '5aly', '5alp', '5aia', '5alt', '5akk',
-                   '5akg',] # '5alx']
+                   #'5akg',] # '5alx']
     #dg_data = pd.read_csv(csv, sep=',')
     #df = dg_data[dg_data['pdb'].isin(swish_codes)] if swish else dg_data 
     #fig = plt.figure(figsize=(9,4))
@@ -108,9 +107,9 @@ def dg_plot(csv, swish=False, select_sys=False, split=False):
     df = dg_data[dg_data['pdb'].isin(swish_codes)] if swish else dg_data
     #axes = fig.subplots(1, 2, sharey=True)
 
-    if swish and 
 
-    fig = plt.figure(figsize=(9,4))
+
+    #fig = plt.figure(figsize=(9,4))
 
 
 
@@ -148,6 +147,7 @@ def swish_scatter(csv, swish=True):
     s = '9-8' if swish else 'ALL'
     fig.savefig('SWISH_dG_{}.png'.format(s),
                 dpi=300, transparent=True)
+
 
 
 def fs_split(csv, swish=True):
@@ -194,5 +194,6 @@ def fs_split(csv, swish=True):
 #dg_scatter('dg_values.csv', swish=False)
 #dg_scatter('dg_values.csv', swish=True)
 #swish_scatter('dg_values.csv', swish=False)
-fs_split('dg_values.csv', swish=False)
+#fs_split('dg_values.csv', swish=False)
 #swish_scatter('dg_values.csv', swish=True)
+swish_diftimes([300, 500])
