@@ -8,6 +8,7 @@ import pandas as pd
 import pathlib
 import datetime
 from sklearn import metrics
+from scipy.stats import linregress
 #import seaborn as sns
 
 colours = ['#31859C',   # FS1 & BS1
@@ -143,14 +144,26 @@ def swish_diftimes(timestamps, exclusions=None):
     x = np.linspace(-20, 10, 100)
 
     markers = {300: 'D', 500: 'x', 1000: 'P'}
+    #df.loc[df.Name.isin(df1.Name), ['Nonprofit', 'Education']] = df1[['Nonprofit', 'Education']].values
+    #r2 = []
+    df1 = pd.read_csv('dg_values.csv', sep=',')
     for t in timestamps:
-        csv = 'dg_values.csv' if t == 300 else 'SWISH_dG_{}ns.csv'.format(t)
-        dg_data = pd.read_csv(csv, sep=',')
-        df = dg_data[~dg_data['pdb'].isin(exclusions)]\
+        dg_data = df1.copy(deep=True) if t == 300 else pd.read_csv('SWISH_dG_{}ns.csv'.format(t), sep=',')
+        df = dg_data[~dg_data['pdb'].isin(exclusions[t])]\
             if exclusions is not None else dg_data
-        ax.scatter(x='exp', y='swish', data=df,
-                   marker=markers[t], s=8, c='k', label=str(t), zorder=2)
+        df1_ex = df1[~df1['pdb'].isin(exclusions[t])]\
+            if exclusions is not None else df1
+        df1_ex.loc[df1_ex.pdb.isin(df.pdb), ['swish']] = df[['swish']].values
+        r2 = linregress(df1_ex['exp'], df1_ex['swish'])[2]**2
 
+        ax.scatter(x='exp', y='swish', data=df,
+                   marker=markers[t],
+                   s=8 if t == 300 else 28,
+                   c='k',
+                   label='{}: $\mathrm{{R^2}}$ = {:3.2f}'.format(t,r2),
+                   zorder=2)
+        ax.legend()
+        '''
         for i, j, n in zip(df['exp'], df['swish'], df['pdb']):
             if j < i+3.7 and j > i-3.7: continue
             if j > i:
@@ -159,7 +172,13 @@ def swish_diftimes(timestamps, exclusions=None):
             else:
                 ax.annotate(n, (i, j), xytext=(5, 0), textcoords='offset points',
                             size=8, ha='left', va="bottom")
-
+        '''
+    ax.scatter(x='exp', y='swish', data=df1_ex,
+                marker=markers[t],
+                s=8 if t == 300 else 28,
+                c='k',
+                label='{}: $\mathrm{{R^2}}$ = {:3.2f}'.format(t,r2),
+                zorder=2)
     ax.plot(x, x, 'k')
     ax.fill_between(x, x+2, x-2, facecolor='xkcd:green', alpha=0.1)
     ax.plot(x, x+2, c='xkcd:green', alpha=0.2)
@@ -175,8 +194,8 @@ def swish_diftimes(timestamps, exclusions=None):
     # add labels
     ax.set_ylabel('Calculated $\Delta$G / kcal mol$^{-1}$')
     ax.set_xlabel('Experimental $\Delta$G / kcal mol$^{-1}$')
-    s = '_ALL' if exclusions is None else '_NOT'+('_').join(exclusions)
-    fig.savefig('SWISH_Times_dG{}.png'.format(s), dpi=300, transparent=True)
+    s = '_ALL' if exclusions is None else '_EXC'
+    fig.savefig('SWISH_Times_dG{}.png'.format(s), dpi=300, transparent=True, bbox_inches='tight')
 
 
 def stats(y_true, y_pred):
@@ -252,6 +271,23 @@ def write_stats(csv):
                             ' | '.join(['{:8.6f}'.format(n) for n in stat_list]),
                             r))
 
+def logP(csv):
+    df= pd.read_csv(csv, sep=',')
+
+    x = [0.05, 0.00, -0.05, -0.10, -0.15, -0.20]
+    #A = df.filter(regex=("r.*")).apply(lambda y: np.polyfit(x, y, 1, full=True), axis=1)
+    A = df.filter(regex=("r.*")).apply(lambda y: linregress(x, y), axis=1)
+    print(A)
+    df['m'] = [s[0] for s in A]
+    df['err'] = [s[4] for s in A]
+    df['R-sq'] = [s[2]**2 for s in A]
+
+    print(df)
+
+
+
+
+
 if __name__ == "__main__":
 
     #ddg_scatter('ddg_data.csv')
@@ -260,7 +296,12 @@ if __name__ == "__main__":
     #quad_plot('dg_values500.csv')
     #quad_plot('dg_values.csv', SI=True)
     swish_diftimes([300, 500])
-    swish_diftimes([300, 500], ['5am3', '5aly', '5am0'])
+    swish_diftimes([300, 500],
+                   {300: ['5alo', '5aly', '5alh', '5alg', '5am0', '5am3'],
+                    500: ['5aly', '5alh', '5am0', '5am3'],
+                    })
+
+    logP('logP_data.csv')
 
     #write_stats('dg_values.csv')
     #write_stats('dg_values500.csv')
