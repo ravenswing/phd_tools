@@ -9,7 +9,7 @@ import pathlib
 import datetime
 from sklearn import metrics
 from scipy.stats import linregress
-#import seaborn as sns
+import seaborn as sns
 
 colours = ['#31859C',   # FS1 & BS1
            '#FFC000',   # Tunnel
@@ -275,18 +275,54 @@ def logP(csv):
     df= pd.read_csv(csv, sep=',')
 
     x = [0.05, 0.00, -0.05, -0.10, -0.15, -0.20]
-    #A = df.filter(regex=("r.*")).apply(lambda y: np.polyfit(x, y, 1, full=True), axis=1)
     A = df.filter(regex=("r.*")).apply(lambda y: linregress(x, y), axis=1)
-    print(A)
     df['m'] = [s[0] for s in A]
     df['err'] = [s[4] for s in A]
     df['R-sq'] = [s[2]**2 for s in A]
-
+    df['w'] = df['err'].apply(lambda e: 1/e)
     print(df)
 
+    X = df['logP'].to_numpy().reshape(-1, 1)
+    from sklearn.linear_model import LinearRegression
+    WLS = LinearRegression()
+    WLS.fit(X, df['m'],)
+    print(WLS.score(X, df['m'],))
+    print(WLS.intercept_, WLS.coef_)
 
+    WLS = LinearRegression()
+    WLS.fit(X, df['m'], sample_weight=df['R-sq'])
+    R = WLS.score(X, df['m'], sample_weight=df['R-sq'])
+    print(WLS.intercept_, WLS.coef_)
 
+    fig = plt.figure(figsize=(4.5, 4))
+    ax = plt.axes()
+    x = np.linspace(0.5, 5., 100)
+    ax.grid(alpha=0.5)
+    ax.errorbar(df['logP'], df['m'], yerr=df['err'], fmt='D', ms=6, c='xkcd:dark cyan')
+    ax.plot(x, WLS.coef_*x + WLS.intercept_, c='xkcd:navy')
+    ax.axhline(y=0., xmin=0., xmax=1, c='k', ls='--', lw=1)
+    ax.set_ylabel('$\mathrm{H_{diff}}$')
+    ax.set_xlabel('log P')
+    fig.text(0.3, 0.8, '$\mathrm{{ R^2 }}$ = {:3.2f}'.format(R),
+             ha='center', fontsize=10)
+    fig.savefig('logP.png',
+                dpi=300, transparent=True, bbox_inches='tight')
+    plt.close(fig)
 
+    f, ax = plt.subplots(figsize=(4.5, 4))
+
+    # Draw the two density plots
+    low_clust = df[df['logP'] < 2.5]
+    high_clust = df[df['logP'] >= 2.5]
+
+    ax.axhline(y=0., xmin=0., xmax=1, c='k', ls='--', lw=1, alpha=.8)
+    ax = sns.kdeplot(low_clust['logP'], low_clust['m'],
+                     cmap="Reds", shade=True, shade_lowest=False)
+    ax = sns.kdeplot(high_clust['logP'], high_clust['m'],
+                     cmap="Blues", shade=True, shade_lowest=False)
+    ax.set_ylabel('$\mathrm{H_{diff}}$')
+    f.savefig('logP_v2.png',
+              dpi=300, transparent=True, bbox_inches='tight')
 
 if __name__ == "__main__":
 
@@ -295,12 +331,13 @@ if __name__ == "__main__":
     #quad_plot('dg_values.csv')
     #quad_plot('dg_values500.csv')
     #quad_plot('dg_values.csv', SI=True)
-    swish_diftimes([300, 500])
+    #swish_diftimes([300, 500])
+    '''
     swish_diftimes([300, 500],
                    {300: ['5alo', '5aly', '5alh', '5alg', '5am0', '5am3'],
                     500: ['5aly', '5alh', '5am0', '5am3'],
                     })
-
+    '''
     logP('logP_data.csv')
 
     #write_stats('dg_values.csv')
