@@ -9,16 +9,18 @@ import pathlib
 import datetime
 from sklearn import metrics
 from scipy.stats import linregress
+from sklearn.linear_model import LinearRegression
 import seaborn as sns
 
 colours = ['#31859C',   # FS1 & BS1
            '#FFC000',   # Tunnel
            '#7030A0',   # FS2 & BS2
-          ]
+           ]
 
 labels = ["$\mathrm{F_{RHS}}$", "$\mathrm{F_{LHS}}$"]
 comet_codes = ['5alg', '5am3', '5aly', '5alp', '5aia', '5alt', '5akk',
-               '5akg',] # '5alx']
+               '5akg', '5alx']
+
 
 def ddg_scatter(csv):
     """ Make custom scatter from ddG data """
@@ -58,11 +60,11 @@ def dg_scatter(ax, df, Y):
     x = np.linspace(-20, 10, 100)
     # plot data
     ax.scatter(x='exp', y=Y, data=df,
-                    marker='D', s=8, c='k', zorder=2)
+               marker='D', s=8, c='k', zorder=2)
     # add central line and coloured regions
     ax.plot(x, x, 'k')
     ax.fill_between(x, x+2, x-2, facecolor='xkcd:green', alpha=0.1)
-    ax.plot(x, x+2, c='xkcd:green', alpha=0.2 )
+    ax.plot(x, x+2, c='xkcd:green', alpha=0.2)
     ax.plot(x, x-2, c='xkcd:green', alpha=0.2)
     ax.fill_between(x, x+2, x+3.5, facecolor='xkcd:orange', alpha=0.1)
     ax.plot(x, x+3.5, c='xkcd:orange', alpha=0.2)
@@ -76,11 +78,12 @@ def dg_scatter(ax, df, Y):
     for i, j, n in zip(df['exp'], df[Y], df['pdb']):
         if j < i+3.7 and j > i-3.7: continue
         if j > i:
-            ax.annotate(n, (i, j), xytext=(-5,0), textcoords='offset points',
+            ax.annotate(n, (i, j), xytext=(-5, 0), textcoords='offset points',
                         size=8, ha='right', va="bottom")
         else:
             ax.annotate(n, (i, j), xytext=(5, 0), textcoords='offset points',
                         size=8, ha='left', va="bottom")
+
 
 def split_plot(csv):
     """ Make SI 2x3 plots of dG for each binding site """
@@ -94,7 +97,8 @@ def split_plot(csv):
         for fs in [1, 2]:
             dg_scatter(axes[site, fs-1], to_plot, 'fs'+str(fs))
 
-            fig.text(0.31+((fs-1)*0.41), 0.9, labels[fs-1], ha='center', fontsize=18)
+            fig.text(0.31+((fs-1)*0.41), 0.9, labels[fs-1], ha='center',
+                     fontsize=18)
             fig.text(0.31+((fs-1)*0.41), 0.07,
                      '$\mathrm{\Delta G_{exp}}$ / kcal $\mathrm{mol^{-1}}$',
                      ha='center', fontsize=10)
@@ -104,10 +108,9 @@ def split_plot(csv):
                  va='center', rotation='vertical', fontsize=10)
     fig.savefig('FunMetaD_FSsplit_dG.png', dpi=300, transparent=True)
 
+
 def quad_plot(csv, SI=False):
     """ Make manuscript and SI 2x2 plots of all methods """
-    #comet_codes = ['5alg', '5am3', '5aly', '5alp', '5aia', '5alt', '5akk',
-#                   '5akg',] # '5alx']
     dg_data = pd.read_csv(csv, sep=',')
     fig = plt.figure(figsize=(10, 10))
     axes = fig.subplots(2, 2, sharex='col', sharey=True)
@@ -119,11 +122,11 @@ def quad_plot(csv, SI=False):
     dg_scatter(axes[0, 1], df, 'fs2')
     axes[0, 1].set_title('Fun-metaD - '+labels[1], fontsize=16)
     dg_scatter(axes[1, 0], df, 'comet')
-    axes[1, 0].set_title('CoMet Path', fontsize=16)
+    axes[1, 0].set_title('COMet Path', fontsize=16)
     dg_scatter(axes[1, 1], df, 'swish')
     axes[1, 1].set_title('Fun-SWISH', fontsize=16)
 
-    for i in [0,1]:
+    for i in [0, 1]:
         # x label
         fig.text(0.31+(i*0.41), 0.07,
                  '$\mathrm{\Delta G_{exp}}$ / kcal $\mathrm{mol^{-1}}$',
@@ -134,7 +137,8 @@ def quad_plot(csv, SI=False):
                  va='center', rotation='vertical', fontsize=10)
 
     s = 'SI' if SI else 'manuscript'
-    fig.savefig('Quad_dG_{}.png'.format(s), dpi=300, transparent=True)
+    fig.savefig('./Quad_dG_{}.png'.format(s),
+                dpi=300, transparent=True)
 
 
 def swish_diftimes(timestamps, exclusions=None):
@@ -144,11 +148,10 @@ def swish_diftimes(timestamps, exclusions=None):
     x = np.linspace(-20, 10, 100)
 
     markers = {300: 'D', 500: 'x', 1000: 'P'}
-    #df.loc[df.Name.isin(df1.Name), ['Nonprofit', 'Education']] = df1[['Nonprofit', 'Education']].values
-    #r2 = []
     df1 = pd.read_csv('dg_values.csv', sep=',')
     for t in timestamps:
-        dg_data = df1.copy(deep=True) if t == 300 else pd.read_csv('SWISH_dG_{}ns.csv'.format(t), sep=',')
+        dg_data = df1.copy(deep=True) if t == 300 else \
+                pd.read_csv('SWISH_dG_{}ns.csv'.format(t), sep=',')
         df = dg_data[~dg_data['pdb'].isin(exclusions[t])]\
             if exclusions is not None else dg_data
         df1_ex = df1[~df1['pdb'].isin(exclusions[t])]\
@@ -160,25 +163,16 @@ def swish_diftimes(timestamps, exclusions=None):
                    marker=markers[t],
                    s=8 if t == 300 else 28,
                    c='k',
-                   label='{}: $\mathrm{{R^2}}$ = {:3.2f}'.format(t,r2),
+                   label='{}: $\mathrm{{R^2}}$ = {:3.2f}'.format(t, r2),
                    zorder=2)
         ax.legend()
-        '''
-        for i, j, n in zip(df['exp'], df['swish'], df['pdb']):
-            if j < i+3.7 and j > i-3.7: continue
-            if j > i:
-                ax.annotate(n, (i, j), xytext=(-5,0), textcoords='offset points',
-                            size=8, ha='right', va="bottom")
-            else:
-                ax.annotate(n, (i, j), xytext=(5, 0), textcoords='offset points',
-                            size=8, ha='left', va="bottom")
-        '''
+
     ax.scatter(x='exp', y='swish', data=df1_ex,
-                marker=markers[t],
-                s=8 if t == 300 else 28,
-                c='k',
-                label='{}: $\mathrm{{R^2}}$ = {:3.2f}'.format(t,r2),
-                zorder=2)
+               marker=markers[t],
+               s=8 if t == 300 else 28,
+               c='k',
+               label='{}: $\mathrm{{R^2}}$ = {:3.2f}'.format(t, r2),
+               zorder=2)
     ax.plot(x, x, 'k')
     ax.fill_between(x, x+2, x-2, facecolor='xkcd:green', alpha=0.1)
     ax.plot(x, x+2, c='xkcd:green', alpha=0.2)
@@ -195,12 +189,11 @@ def swish_diftimes(timestamps, exclusions=None):
     ax.set_ylabel('Calculated $\Delta$G / kcal mol$^{-1}$')
     ax.set_xlabel('Experimental $\Delta$G / kcal mol$^{-1}$')
     s = '_ALL' if exclusions is None else '_EXC'
-    fig.savefig('SWISH_Times_dG{}.png'.format(s), dpi=300, transparent=True, bbox_inches='tight')
+    fig.savefig('SWISH_Times_dG{}.png'.format(s),
+                dpi=300, transparent=True, bbox_inches='tight')
 
 
 def stats(y_true, y_pred):
-    # R-squared
-    #r2 = metrics.r2_score(y_true, y_pred)
     # RMSE
     mae = metrics.mean_absolute_error(y_true, y_pred)
     rmse = np.sqrt(metrics.mean_squared_error(y_true, y_pred))
@@ -212,9 +205,17 @@ def stats(y_true, y_pred):
 
     return [r2, r, tau, mae, rmse]
 
+
 def write_stats(csv):
     dg_data = pd.read_csv(csv, sep=',')
     grouped = dg_data.groupby('site')
+
+    combnd = pd.concat([grouped.get_group('BS1'), grouped.get_group('BS2')])
+    print(combnd)
+    X = combnd['exp'].to_numpy().reshape(-1, 1)
+    LS = LinearRegression()
+    LS.fit(X, combnd.fs1)
+    print('COMBINED: ', LS.score(X, combnd.fs1))
 
     current = datetime.datetime.now()
     logfile = current.strftime("Statistics_%d%b-%H-%M.md")
@@ -225,20 +226,24 @@ def write_stats(csv):
         f.write("## Per Site Per FS\n")
         f.write(head)
         for site, group in grouped:
+            LS = LinearRegression()
+            X = group['exp'].to_numpy().reshape(-1, 1)
+            LS.fit(X, group.fs1)
+            print(group.site.to_numpy()[0], LS.score(X, group.fs1))
             r, c = group.shape
             exp_val = group.exp
             fs1_val = group.fs1
             stat_list1 = stats(exp_val, fs1_val)
             f.write('|{}| RHS |{}| {} |\n'
                     .format(site,
-                            ' | '.join(['{:8.6f}'.format(n) for n in stat_list1]),
-                            r ))
+                            ' | '.join(['{:8.6f}'.format(n)
+                                       for n in stat_list1]), r))
             fs2_val = group.fs2
             stat_list2 = stats(exp_val, fs2_val)
             f.write('| {} | LHS | {} | {} |\n'
                     .format(site,
-                            ' | '.join(['{:8.6f}'.format(n) for n in stat_list2]),
-                            r))
+                            ' | '.join(['{:8.6f}'.format(n)
+                                       for n in stat_list2]), r))
 
     head = ("| Method | R-squared | Pearson *r* | Kendall *tau* | MAE | RMSE | N |\n"
             "|--------|-----------|-------------|---------------|-----|------|---|\n")
@@ -253,8 +258,8 @@ def write_stats(csv):
             stat_list = stats(exp_val, m_val)
             f.write('| {} | {} | {} |\n'
                     .format(m,
-                            ' | '.join(['{:8.6f}'.format(n) for n in stat_list]),
-                            r))
+                            ' | '.join(['{:8.6f}'.format(n)
+                                       for n in stat_list]), r))
 
     cut = dg_data[dg_data['pdb'].isin(comet_codes)]
     with path.open(mode='a') as f:
@@ -268,11 +273,12 @@ def write_stats(csv):
             stat_list = stats(exp_val, m_val)
             f.write('| {} | {} | {} |\n'
                     .format(m,
-                            ' | '.join(['{:8.6f}'.format(n) for n in stat_list]),
-                            r))
+                            ' | '.join(['{:8.6f}'.format(n)
+                                       for n in stat_list]), r))
+
 
 def logP(csv):
-    df= pd.read_csv(csv, sep=',')
+    df = pd.read_csv(csv, sep=',')
 
     x = [0.05, 0.00, -0.05, -0.10, -0.15, -0.20]
     A = df.filter(regex=("r.*")).apply(lambda y: linregress(x, y), axis=1)
@@ -282,12 +288,7 @@ def logP(csv):
     df['w'] = df['err'].apply(lambda e: 1/e)
     print(df)
 
-    X = df['logP'].to_numpy().reshape(-1, 1)
-    from sklearn.linear_model import LinearRegression
-    WLS = LinearRegression()
-    WLS.fit(X, df['m'],)
-    print(WLS.score(X, df['m'],))
-    print(WLS.intercept_, WLS.coef_)
+    X = df['logP'].to_numpy().reshape(-1, 1) 
 
     WLS = LinearRegression()
     WLS.fit(X, df['m'], sample_weight=df['R-sq'])
@@ -298,7 +299,8 @@ def logP(csv):
     ax = plt.axes()
     x = np.linspace(0.5, 5., 100)
     ax.grid(alpha=0.5)
-    ax.errorbar(df['logP'], df['m'], yerr=df['err'], fmt='D', ms=6, c='xkcd:dark cyan')
+    ax.errorbar(df['logP'], df['m'], yerr=df['err'], fmt='D', ms=6,
+                c='xkcd:dark cyan')
     ax.plot(x, WLS.coef_*x + WLS.intercept_, c='xkcd:navy')
     ax.axhline(y=0., xmin=0., xmax=1, c='k', ls='--', lw=1)
     ax.set_ylabel('$\mathrm{H_{diff}}$')
@@ -324,21 +326,19 @@ def logP(csv):
     f.savefig('logP_v2.png',
               dpi=300, transparent=True, bbox_inches='tight')
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     #ddg_scatter('ddg_data.csv')
     #split_plot('dg_values.csv')
     #quad_plot('dg_values.csv')
     #quad_plot('dg_values500.csv')
     #quad_plot('dg_values.csv', SI=True)
-    #swish_diftimes([300, 500])
-    '''
+    swish_diftimes([300, 500])
     swish_diftimes([300, 500],
                    {300: ['5alo', '5aly', '5alh', '5alg', '5am0', '5am3'],
                     500: ['5aly', '5alh', '5am0', '5am3'],
                     })
-    '''
-    logP('logP_data.csv')
+    #logP('logP_data.csv')
 
-    #write_stats('dg_values.csv')
+    write_stats('dg_values.csv')
     #write_stats('dg_values500.csv')
