@@ -303,7 +303,7 @@ def logP(csv):
                 c='xkcd:dark cyan')
     ax.plot(x, WLS.coef_*x + WLS.intercept_, c='xkcd:navy')
     ax.axhline(y=0., xmin=0., xmax=1, c='k', ls='--', lw=1)
-    ax.set_ylabel('$\mathrm{H_{diff}}$')
+    ax.set_ylabel('$\mathrm{H_{diff,w}}$')
     ax.set_xlabel('log P')
     fig.text(0.3, 0.8, '$\mathrm{{ R^2 }}$ = {:3.2f}'.format(R),
              ha='center', fontsize=10)
@@ -322,7 +322,7 @@ def logP(csv):
                      cmap="Reds", shade=True, shade_lowest=False)
     ax = sns.kdeplot(high_clust['logP'], high_clust['m'],
                      cmap="Blues", shade=True, shade_lowest=False)
-    ax.set_ylabel('$\mathrm{H_{diff}}$')
+    ax.set_ylabel('$\mathrm{H_{diff,w}}$')
     f.savefig('logP_v2.png',
               dpi=300, transparent=True, bbox_inches='tight')
 
@@ -338,7 +338,7 @@ if __name__ == "__main__":
                    {300: ['5alo', '5aly', '5alh', '5alg', '5am0', '5am3'],
                     500: ['5aly', '5alh', '5am0', '5am3'],
                     })
-    #logP('logP_data.csv')
+    logP('logP_data.csv')
 
     write_stats('dg_values.csv')
     #write_stats('dg_values500.csv')
