@@ -147,7 +147,7 @@ def swish_diftimes(timestamps, exclusions=None):
     ax = plt.axes()
     x = np.linspace(-20, 10, 100)
 
-    markers = {300: 'D', 500: 'x', 1000: 'P'}
+    markers = {300: 'D', 500: 'x', 1000: '+'}
     df1 = pd.read_csv('dg_values.csv', sep=',')
     for t in timestamps:
         dg_data = df1.copy(deep=True) if t == 300 else \
@@ -288,7 +288,7 @@ def logP(csv):
     df['w'] = df['err'].apply(lambda e: 1/e)
     print(df)
 
-    X = df['logP'].to_numpy().reshape(-1, 1) 
+    X = df['logP'].to_numpy().reshape(-1, 1)
 
     WLS = LinearRegression()
     WLS.fit(X, df['m'], sample_weight=df['R-sq'])
@@ -331,14 +331,15 @@ if __name__ == "__main__":
     #ddg_scatter('ddg_data.csv')
     #split_plot('dg_values.csv')
     #quad_plot('dg_values.csv')
-    #quad_plot('dg_values500.csv')
-    #quad_plot('dg_values.csv', SI=True)
-    swish_diftimes([300, 500])
-    swish_diftimes([300, 500],
+    quad_plot('dg_valuesFINAL.csv')
+    quad_plot('dg_valuesFINAL.csv', SI=True)
+    swish_diftimes([300, 500, 1000])
+    swish_diftimes([300, 500, 1000],
                    {300: ['5alo', '5aly', '5alh', '5alg', '5am0', '5am3'],
                     500: ['5aly', '5alh', '5am0', '5am3'],
+                    1000: ['5alh'],
                     })
     #logP('logP_data.csv')
 
-    write_stats('dg_values.csv')
+    write_stats('dg_valuesFINAL.csv')
     #write_stats('dg_values500.csv')
