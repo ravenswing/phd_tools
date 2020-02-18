@@ -88,9 +88,9 @@ def dg_scatter(ax, df, Y):
 def split_plot(csv):
     """ Make SI 2x3 plots of dG for each binding site """
     df = pd.read_csv(csv, sep=',')
-    fig = plt.figure(figsize=(10, 14))
+    fig = plt.figure(figsize=(6, 8.4))
     axes = fig.subplots(3, 2, sharex='col', sharey=True)
-    fig.subplots_adjust(hspace=0.08, wspace=0.08)
+    fig.subplots_adjust(hspace=0.1, wspace=0.1)
     sites = ['Tunnel', 'BS1', 'BS2']
     for site in [0, 1, 2]:
         to_plot = df.loc[df['site'] == sites[site]]
@@ -99,11 +99,11 @@ def split_plot(csv):
 
             fig.text(0.31+((fs-1)*0.41), 0.9, labels[fs-1], ha='center',
                      fontsize=18)
-            fig.text(0.31+((fs-1)*0.41), 0.07,
+            fig.text(0.31+((fs-1)*0.41), 0.05,
                      '$\mathrm{\Delta G_{exp}}$ / kcal $\mathrm{mol^{-1}}$',
                      ha='center', fontsize=10)
 
-        fig.text(0.05, 0.24+(site*0.27),
+        fig.text(0.02, 0.24+(site*0.27),
                  '$\mathrm{\Delta G_{calc}}$ / kcal $\mathrm{mol^{-1}}$',
                  va='center', rotation='vertical', fontsize=10)
     fig.savefig('FunMetaD_FSsplit_dG.png', dpi=300, transparent=True)
@@ -141,38 +141,64 @@ def quad_plot(csv, SI=False):
                 dpi=300, transparent=True)
 
 
+def ind_scatterplot(csv, method):
+    """ Make indvidual scatter plots of all methods """
+    df = pd.read_csv(csv, sep=',')
+    fig = plt.figure(figsize=(3, 3))
+    axes = fig.subplots(1)
+
+    dg_scatter(axes, df, method) 
+    axes.set_xlabel('$\mathrm{\Delta G_{exp}}$ / kcal $\mathrm{mol^{-1}}$',
+                    fontsize=11)
+
+    axes.set_ylabel('$\mathrm{\Delta G_{calc}}$ / kcal $\mathrm{mol^{-1}}$',
+                    fontsize=11)
+
+    fig.savefig('./Ind_dG_{}.png'.format(method),
+                dpi=300, transparent=True, bbox_inches='tight')
+
+
 def swish_diftimes(timestamps, exclusions=None):
     """ Make custom scatter dG values """
     fig = plt.figure(figsize=(4.5, 4))
     ax = plt.axes()
     x = np.linspace(-20, 10, 100)
-
-    markers = {300: 'D', 500: 'x', 1000: '+'}
-    df1 = pd.read_csv('dg_values.csv', sep=',')
+    # define marker style and size for each series
+    markers = {300: ['D', 8], 500: ['x', 28], 1000: ['+', 38]}
+    # load in base data set
+    df = pd.read_csv('dg_values.csv', sep=',')
     for t in timestamps:
-        dg_data = df1.copy(deep=True) if t == 300 else \
+        # load new data
+        dg_data = df.copy(deep=True) if t == 300 else \
                 pd.read_csv('SWISH_dG_{}ns.csv'.format(t), sep=',')
-        df = dg_data[~dg_data['pdb'].isin(exclusions[t])]\
-            if exclusions is not None else dg_data
-        df1_ex = df1[~df1['pdb'].isin(exclusions[t])]\
-            if exclusions is not None else df1
-        df1_ex.loc[df1_ex.pdb.isin(df.pdb), ['swish']] = df[['swish']].values
-        r2 = linregress(df1_ex['exp'], df1_ex['swish'])[2]**2
-
-        ax.scatter(x='exp', y='swish', data=df,
-                   marker=markers[t],
-                   s=8 if t == 300 else 28,
+        # replace data values
+        if t > 301:
+            for p in dg_data.pdb.values:
+                #print(p)
+                #print(df.loc[df['pdb'] == p, ['swish']])
+                #print(dg_data)
+                df.loc[df['pdb'] == p, ['swish']] = dg_data.loc[dg_data['pdb'] == p, ['r1']].values[0][0]
+        # filter out exclusions 
+        df_ex = df[~df['pdb'].isin(exclusions[t])]\
+            if exclusions is not None else df
+        # calculate lin. regression R-squared
+        r2 = linregress(df_ex['exp'], df_ex['swish'])[2]**2
+        # plot
+        ax.scatter(x='exp', y='swish', data=df_ex,
+                   marker=markers[t][0],
+                   s=markers[t][1],
                    c='k',
+                   lw=1,
                    label='{}: $\mathrm{{R^2}}$ = {:3.2f}'.format(t, r2),
                    zorder=2)
         ax.legend()
 
-    ax.scatter(x='exp', y='swish', data=df1_ex,
-               marker=markers[t],
-               s=8 if t == 300 else 28,
-               c='k',
-               label='{}: $\mathrm{{R^2}}$ = {:3.2f}'.format(t, r2),
-               zorder=2)
+    #ax.scatter(x='exp', y='swish', data=df1_ex,
+               #marker=markers[t],
+               #s=8 if t == 300 else 28,
+               #c='k',
+               #label='{}: $\mathrm{{R^2}}$ = {:3.2f}'.format(t, r2),
+               #zorder=2)
     ax.plot(x, x, 'k')
     ax.fill_between(x, x+2, x-2, facecolor='xkcd:green', alpha=0.1)
     ax.plot(x, x+2, c='xkcd:green', alpha=0.2)
@@ -329,17 +355,22 @@ def logP(csv):
 
 if __name__ == "__main__":
     #ddg_scatter('ddg_data.csv')
-    #split_plot('dg_values.csv')
+    split_plot('dg_values.csv')
     #quad_plot('dg_values.csv')
-    quad_plot('dg_valuesFINAL.csv')
-    quad_plot('dg_valuesFINAL.csv', SI=True)
-    swish_diftimes([300, 500, 1000])
-    swish_diftimes([300, 500, 1000],
-                   {300: ['5alo', '5aly', '5alh', '5alg', '5am0', '5am3'],
-                    500: ['5aly', '5alh', '5am0', '5am3'],
-                    1000: ['5alh'],
-                    })
+    #quad_plot('dg_valuesFINAL.csv')
+    #quad_plot('dg_valuesFINAL.csv', SI=True)
+    
+    methods = ['fs1', 'fs2', 'comet', 'swish']
+    for m in methods:
+        ind_scatterplot('dg_valuesFINAL.csv', m)
+    
+    #swish_diftimes([300, 500, 1000])
+    #swish_diftimes([300, 500, 1000],
+                   #{300: ['5alo', '5aly', '5alh', '5alg', '5am0', '5am3'],
+                    #500: ['5aly', '5alh', '5am0', '5am3'],
+                    #1000: ['5alh'],
+                    #})
     #logP('logP_data.csv')
 
-    write_stats('dg_valuesFINAL.csv')
+    #write_stats('dg_valuesFINAL.csv')
     #write_stats('dg_values500.csv')
