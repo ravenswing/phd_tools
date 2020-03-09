@@ -213,3 +213,17 @@ def diffusion(colv_data, cv, ax, lin_col):
     ax.set_xlim([0, 500.])
     ax.set_xticks(np.linspace(0., 500., num=6))
     ax.grid(alpha=0.3)
+
+
+def xvg_line(xvg_data, ax, col, rollavg=True, label=None):
+    head = xvg_data.columns.values.tolist()
+    xvg_data['mean'] = xvg_data[head[1]].rolling(500, center=True).mean()
+    y1 = xvg_data[head[1]].values*10
+    y2 = xvg_data['mean'].values*10
+    x = xvg_data[head[0]]/1000
+    ax.plot(x, y1, c=col, alpha=0.3, lw=0.5)
+    if label:
+        ax.plot(x, y2, c=col, alpha=1., lw=1., label=label)
+    else:
+        ax.plot(x, y2, c=col, alpha=1., lw=1.)
+    ax.grid(alpha=0.3)
