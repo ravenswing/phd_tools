@@ -77,12 +77,12 @@ def fes(filename, is_rew):
 def xvg(filename):
     with open(filename) as f:
         lines = f.readlines()
-    head = [''.join(l.split()[-2:])[1:-1] for l in lines if "label" in l]
+    head = [''.join(l.split('label')[-1])[2:-2] for l in lines if "label" in l]
     print(head)
     comment = len([l for l in lines if l.split()[0] in ['#','@']])+1
     print(comment)
     # filters out comment lines and splits columns via whitespace
-    #[df[df.loc[0, :][0] not in ["#", "@"]]
+    #[df[df.loc[1, :][2] not in ["#", "@"]]
     xvg_data = pd.concat([df for df in pd.read_csv(filename,
                                                   delim_whitespace=True,
                                                   names=head,
