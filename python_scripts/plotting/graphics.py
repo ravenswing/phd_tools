@@ -10,6 +10,8 @@ import numpy as np
 from numpy.polynomial import polynomial as P
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib import cm
+from matplotlib.colors import ListedColormap
 from matplotlib import ticker
 import seaborn as sns
 
@@ -272,11 +274,12 @@ def heatmap(data, row_labels, col_labels, ax=None,
     ax.set_yticklabels(row_labels)
 
     # Let the horizontal axes labeling appear on top.
-    ax.tick_params(top=True, bottom=False,
-                   labeltop=True, labelbottom=False)
+    ax.tick_params(top=False, bottom=False,
+                   labeltop=False, labelbottom=False)
 
     # Rotate the tick labels and set their alignment.
-    plt.setp(ax.get_xticklabels(), rotation=-30, ha="right",
+    # original rotation = -30
+    plt.setp(ax.get_xticklabels(), rotation=0, ha="right",
              rotation_mode="anchor")
 
     # Turn spines off and create white grid.
@@ -293,7 +296,8 @@ def heatmap(data, row_labels, col_labels, ax=None,
 
 def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
                      textcolors=("black", "white"),
-                     threshold=None, **textkw):
+                     threshold=None, min_cutoff=None,
+                     max_cutoff=None, **textkw):
     """
     A function to annotate a heatmap.
 
@@ -343,39 +347,95 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
     texts = []
     for i in range(data.shape[0]):
         for j in range(data.shape[1]):
-            kw.update(color=textcolors[int(im.norm(data[i, j]) > threshold)])
-            text = im.axes.text(j, i, valfmt(data[i, j], None), **kw)
-            texts.append(text)
+            if min_cutoff is not None and data[i, j] < min_cutoff:
+                continue
+            elif max_cutoff is not None and data[i, j] > max_cutoff:
+                continue
+            else:
+                kw.update(color=textcolors[int(im.norm(data[i, j]) > threshold)])
+                text = im.axes.text(j, i, valfmt(data[i, j], None), **kw)
+                texts.append(text)
 
     return texts
 
-def rmsf(rmsf_data, grid=None, seq=None):
-    head = rmsf_data.columns.values.tolist()
+def rmsf(rmsf_data, seq, grid=None, offset=None):
+    '''
+    to plot the rmsf data - specifically for B-sheet and lamellars
+        rmsf_data       output from load_data.xvg
+        seq             Sequence: list of residue names/letters
+        grid            dimensions of heatmap grid is displaying as such
+        offset          if anti-parallel, number of cells to displace each
+                        alternating row by
+    '''
+    # adjust cmap so minimum value is perfectly white
+    old_cmap = cm.get_cmap('YlGnBu', 256)
+    newcolors = old_cmap(np.linspace(0, 1, 256))
+    white = np.array([256/256, 256/256, 256/256, 1])
+    newcolors[0, :] = white
+    custom_cmap = ListedColormap(newcolors)
+ 
+    # extract data from loaded xvg pd DataFrame
+    head = rmsf_data.columns.values.tolist() 
+    rmsf = np.array(rmsf_data[head[1]].tolist())*10
 
-    x = rmsf_data[head[0]]
+    # extract molecule name from sequence
+    out_name = ''.join([seq[-1], seq[-2], seq[1], seq[0]])
 
+    # plots a bar or the RMSF per residue
     if grid is None:
         print('2D plot')
 
-    else:
+    # 
+    elif offset is None:
+        print('Plotting for parallel arrangement')
         assert len(grid) == 2
         assert rmsf_data.shape[0] == grid[0] * grid[1]
-
-        rmsf = np.array(rmsf_data[head[1]].tolist())*10
 
         # reshape to grid dimensions
         rmsf = np.reshape(rmsf, (grid[0], grid[1]))
 
-        rmsf
+        fig, ax = plt.subplots(figsize=(11, 3.5))
 
-        res_n = ['H','F','H','F','H','F','H','F','H','F','H','F','K','E','K','E']
-        heatmap(rmsf, list(np.arange(6)), res_n)
-        fig, ax = plt.subplots(figsize=(11,5))
+        im, cbar = heatmap(rmsf, [x+1 for x in list(np.arange(grid[0]))], seq,
+                           ax=ax, cmap=custom_cmap, cbarlabel="RMSF $\AA$",
+                           vmin=0., vmax=20.)
 
-        im, cbar = heatmap(rmsf, list(np.arange(6)), res_n, ax=ax,
-                           cmap="YlGnBu", cbarlabel="RMSF $\AA$")
-        annotate_heatmap(im, valfmt="{x:.1f}")
+        annotate_heatmap(im, valfmt="{x:.1f}", min_cutoff=-1.)
 
-        fig.tight_layout()
-        fig.savefig('./RMSF.png', dpi=300,
-                    bbox_inches='tight', transparent=True)
+        for s in np.arange(len(seq)):
+            im.axes.text(s, -1, seq[s], horizontalalignment='center')
+
+        out_name += '_para'
+
+    else:
+        print('Plotting for antiparallel arrangement')
+        assert len(grid) == 2
+        assert isinstance(offset, int)
+
+        seq = [' '] * offset + seq
+
+        # establish a grid of negatives that will not be shown
+        base = np.ones((grid[0], grid[1]+offset))*-10.
+        for i in range(grid[0]):
+            if i % 2 == 0:
+                base[i, offset:] = rmsf[i*grid[1]:(i+1)*grid[1]]
+            else:
+                base[i, :-offset] = np.flip(rmsf[i*grid[1]:(i+1)*grid[1]])
+
+        fig, ax = plt.subplots(figsize=(12, 5))
+
+        im, cbar = heatmap(base, [x+1 for x in list(np.arange(6))], seq,
+                           ax=ax, cmap=custom_cmap, cbarlabel="RMSF $\AA$",
+                           vmin=0., vmax=20.)
+
+        annotate_heatmap(im, valfmt="{x:.1f}", min_cutoff=-1.)
+
+        for s in np.arange(len(seq)):
+            im.axes.text(s, -1, seq[s], horizontalalignment='center')
+            im.axes.text(s-1, grid[0], seq[-s], horizontalalignment='center')
+
+        out_name += '_anti'
+
+    fig.tight_layout()
+    fig.savefig('./RMSF_{}.png'.format(out_name), dpi=300,
+                bbox_inches='tight', transparent=True)
