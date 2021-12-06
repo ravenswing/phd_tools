@@ -86,3 +86,10 @@ def xvg(filename):
     data = [[float(val) for val in line.split()] for line in data]
     return data
 
+def cd(filename):
+    """ load CD data """
+    with open(filename) as f:
+        lines = f.readlines()
+        data = [l for l in lines if l[0] not in ("@", "#")]
+    data = [[float(val) for val in line.split()] for line in data]
+    return data

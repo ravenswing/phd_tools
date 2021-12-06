@@ -373,9 +373,11 @@ def rmsf(rmsf_data, seq, grid=None, offset=None):
     white = np.array([256/256, 256/256, 256/256, 1])
     newcolors[0, :] = white
     custom_cmap = ListedColormap(newcolors)
- 
+    #max_cmap_val = 12.
+    max_cmap_val = 20.
+
     # extract data from loaded xvg pd DataFrame
-    head = rmsf_data.columns.values.tolist() 
+    head = rmsf_data.columns.values.tolist()
     rmsf = np.array(rmsf_data[head[1]].tolist())*10
 
     # extract molecule name from sequence
@@ -398,7 +400,7 @@ def rmsf(rmsf_data, seq, grid=None, offset=None):
 
         im, cbar = heatmap(rmsf, [x+1 for x in list(np.arange(grid[0]))], seq,
                            ax=ax, cmap=custom_cmap, cbarlabel="RMSF $\AA$",
-                           vmin=0., vmax=20.)
+                           vmin=0., vmax=max_cmap_val)
 
         annotate_heatmap(im, valfmt="{x:.1f}", min_cutoff=-1.)
 
@@ -426,7 +428,7 @@ def rmsf(rmsf_data, seq, grid=None, offset=None):
 
         im, cbar = heatmap(base, [x+1 for x in list(np.arange(6))], seq,
                            ax=ax, cmap=custom_cmap, cbarlabel="RMSF $\AA$",
-                           vmin=0., vmax=20.)
+                           vmin=0., vmax=max_cmap_val)
 
         annotate_heatmap(im, valfmt="{x:.1f}", min_cutoff=-1.)
 
@@ -437,5 +439,8 @@ def rmsf(rmsf_data, seq, grid=None, offset=None):
         out_name += '_anti'
 
     fig.tight_layout()
-    fig.savefig('./RMSF_{}.png'.format(out_name), dpi=300,
-                bbox_inches='tight', transparent=True)
+
+    return fig, out_name
+
+    #fig.savefig('./RMSF_{}.png'.format(out_name), dpi=300,
+                #bbox_inches='tight', transparent=True)

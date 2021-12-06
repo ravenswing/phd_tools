@@ -8,6 +8,8 @@ import matplotlib
 import matplotlib.font_manager as font_manager
 import matplotlib.pyplot as plt
 import pandas as pd
+
+matplotlib.use('pdf')
 #import os
 #import glob
 #import sys
@@ -18,14 +20,16 @@ import pandas as pd
  ###############################################################################
 
 # Source directory for the files on your local system
-srcdir = '/media/rhys/ExtHD/Project/carlos_peptides/LONG/hydrophobic_brush/unbiased/'
+srcdir = '/home/rhys/Desktop/gpfs/rhys/Project/Peptides/Historic & Hydrophilic/G_hydrophobic_brush/data/'
+
+
 
 #mol = 'brush_3HIS+GLYx3_4x4_0.0A'
 #mol = 'brush_3HIS+GLYx3_Ncapped_4x4_0.0A'
-figure_path = '{}figures/'.format(srcdir)
+figure_path = '/home/rhys/Desktop/gpfs/rhys/Project/Peptides/Historic & Hydrophilic/G_hydrophobic_brush/figures/Thesis/'
 num_pep = 16
 # default_x = np.linspace(0,2500000.0,num=25001)
-plt.style.use('dark_background')
+plt.style.use('fivethirtyeight')
 
 ###############################################################################
 #                               ROLAVGPLOT
@@ -233,7 +237,7 @@ def plot_brush_csv(csv, ylims, ylabel):
     shade = 0.4
     c = 0
     window_size = 200
-    x = np.arange(50000)
+    x = np.arange(100000)
     for i in range(16):
         pep = 'pep'+str(i+1)
         datum = pd.DataFrame(data[pep], columns=[pep])
@@ -268,25 +272,26 @@ def plot_brush_csv(csv, ylims, ylabel):
 
 def plot_indcomb(name, pep_length, ylims, ylabels, window_size):
     """ plot the other things """
-
-    col = {'capd':"#d08770", 'uncapd': "#b48ead"}
     font_sizes = [32, 24]
     x = np.arange(100000)
 
+    '''
+    capped_name = name[0]+"Ncapped_"+name[1]
+    capped_data = pd.read_csv(capped_name, usecols=['tot_hel'])
+    if "hel" or "strand" in name[1]:
+        capped_data['tot_hel'] = (capped_data['tot_hel'] / (num_pep*((pep_length+1)-2)))*100
+    capped_data.rename(columns={'tot_hel': 'capd'}, inplace=True)
+    '''
     uncapped_name = name[0]+name[1]
-    #capped_name = name[0]+"Ncapped_"+name[1]
-
-    #capped_data = pd.read_csv(capped_name, usecols=['tot_hel'])
     uncapped_data = pd.read_csv(uncapped_name, usecols=['tot_hel'])
     if "hel" or "strand" in name[1]:
-    #    capped_data['tot_hel'] = (capped_data['tot_hel'] / (num_pep*((pep_length+1)-2)))*100
         uncapped_data['tot_hel'] = (uncapped_data['tot_hel'] / (num_pep*(pep_length-2)))*100
-    #capped_data.rename(columns={'tot_hel': 'capd'}, inplace=True)
     uncapped_data.rename(columns={'tot_hel': 'uncapd'}, inplace=True)
 
     #data = capped_data.merge(uncapped_data, left_index=True, right_index=True)
     data = uncapped_data
 
+    i=0
     #for d in ['capd', 'uncapd']:
     for d in ['uncapd']:
         data[d+'_rm'] = data[d].rolling(window_size, center=True).mean()
@@ -295,10 +300,15 @@ def plot_indcomb(name, pep_length, ylims, ylabels, window_size):
         data[d+'_max'] = data[d+'_rm'] - data[d+'_std']
 
         fig, ax1 = plt.subplots(figsize=(20, 8))
-        ax1.plot(data[d+'_rm'], color=col[d], linewidth=4.0, zorder=21)
-        ax1.plot(data[d], color=col[d], alpha=.5, linewidth=2.0, zorder=21)
-        #ax1.fill_between(x, data[d+'_min'], data[d+'_max'],
-                         #alpha=.3, facecolor=col[d], zorder=20)
+
+        '''
+        ax1.plot(data[d+'_rm'], color=f'C{0+i}', linewidth=4.0, zorder=21)
+        ax1.plot(data[d], color=f'C{0+i}', alpha=.5, linewidth=2.0, zorder=21)
+        '''
+
+        ax1.plot(data[d+'_rm'], color='C2', linewidth=4.0, zorder=21)
+        ax1.plot(data[d], color='C2', alpha=.5, linewidth=2.0, zorder=21)
+
         ax1.set_ylabel(ylabels, fontweight='medium',
                        fontsize=font_sizes[0])
         ax1.set_ylim(ylims)
@@ -311,13 +321,24 @@ def plot_indcomb(name, pep_length, ylims, ylabels, window_size):
         ax1.legend(['Rolling Mean', 'Raw Data'], fontsize=font_sizes[1])
         plt.yticks(fontweight='medium', fontsize=font_sizes[1])
         fig.savefig(figure_path+uncapped_name+"_"+d+".png", bbox_inches='tight', transparent=True, dpi=300)
+        i += 1
 
-'''
+
     fig2, ax2 = plt.subplots(figsize=(20, 16))
+
+    '''
+    i=0
     for d in ['capd', 'uncapd']:
-        ax2.plot(data[d+'_rm'], color=col[d], linewidth=4.0, zorder=21)
-        ax2.fill_between(x, data[d+'_min'], data[d+'_max'],
-                        alpha=.3, facecolor=col[d], zorder=20)
+        ax2.plot(data[d+'_rm'], color=f'C{0+i}', linewidth=4.0, zorder=21)
+        ax2.fill_between(x, data[d+'_min'], data[d+'_max'], alpha=.3, facecolor=f'C{0+i}', zorder=20)
+        i += 1
+    '''
+
+    for d in ['uncapd']:
+        ax2.plot(data[d+'_rm'], color='C2', linewidth=4.0, zorder=21)
+        ax2.fill_between(x, data[d+'_min'], data[d+'_max'], alpha=.3, facecolor='C2', zorder=20)
+
+
     ax2.set_ylabel(ylabels, fontweight='medium',
                     fontsize=font_sizes[0])
     ax2.set_ylim(ylims)
@@ -327,28 +348,37 @@ def plot_indcomb(name, pep_length, ylims, ylabels, window_size):
     ts = np.linspace(0, 50000, 11)
     ax2.set_xticks(ticks=ts)
     ax2.set_xticklabels(labels=ns, fontweight='medium', fontsize=font_sizes[1])
-    ax2.legend(['N Terminal Capped', 'Uncapped'], fontsize=font_sizes[1])
+    ax2.legend(['N-terminal Capped', 'Uncapped'], fontsize=font_sizes[1])
     plt.yticks(fontweight='medium', fontsize=font_sizes[1])
     fig2.savefig(figure_path+uncapped_name+"_COMBIND.png", bbox_inches='tight', transparent=True, dpi=300)
-'''
+
 PROCESSING = [False, False]
 #run(PROCESSING, mol)
 
 #for mol in ['brush_3HIS+GLYx3_4x4_0.0A', 'brush_3HIS+GLYx3_Ncapped_4x4_0.0A']:
 #for mol in ['brush_3HIS+GLYx7_4x4_0.0A',]:
-    #pep_length = 13 if "Ncapped" in mol else 12
-    #pep_length = 29 if "Ncapped" in mol else 28
-    #print("Using PEP_LENGTH:  "+str(pep_length))
     #processHelicity(srcdir, mol, 100000)
     #processMetric(srcdir, mol, 100000, "E2E")
     #processMetric(srcdir, mol, 100000, "RGYR")
     #processMetric(srcdir, mol, 100000, "RMSD")
+'''
+for mol in ['brush_3HIS+GLYx3_', 'brush_3HIS+GLYx3_Ncapped_']:
+    pep_length = 13 if "Ncapped" in mol else 12
+    print("Using PEP_LENGTH:  "+str(pep_length))
+    plot_brush_csv(mol+'_strand_data.csv', [-0.2, 5.0], '% Strand (DSSP)')
+    plot_brush_csv(mol+'_hel_data.csv', [-0.2, 7.0], '% Helicity (DSSP)')
+'''
 
-#plot_brush_csv(mol+'_strand_data.csv', [-0.2, 5.0], '% Stranda (DSSP)')
-#plot_brush_csv(mol+'_hel_data.csv', [-0.2, 7.0], '% Helicity (DSSP)')
+'''
+plot_indcomb(["brush_3HIS+GLYx3_", "4x4_0.0A_hel_data.csv"], 12, [-2.0, 100.0], '% Helicity (DSSP)', 1000)
+plot_indcomb(["brush_3HIS+GLYx3_", "4x4_0.0A_strand_data.csv"], 12, [-2.0, 100.0], '% Strand (DSSP)', 1000)
+plot_indcomb(["brush_3HIS+GLYx3_", "4x4_0.0A_RMSD_data.csv"], 12, [0.0, 0.5], 'RMSD from linear / nm', 1000)
+plot_indcomb(["brush_3HIS+GLYx3_", "4x4_0.0A_RGYR_data.csv"], 12, [0.0, 2.0], '$R_{gyr}$ / nm', 1000)
+plot_indcomb(["brush_3HIS+GLYx3_", "4x4_0.0A_E2E_data.csv"], 12, [0.0, 5.0], 'End-to-end Distance / nm', 1000)
 
-plot_indcomb(["brush_3HIS+GLYx7_", "4x4_0.0A_hel_data.csv"], 12, [-2.0, 100.0], '% Helicity (DSSP)', 1000)
-plot_indcomb(["brush_3HIS+GLYx7_", "4x4_0.0A_strand_data.csv"], 12, [-2.0, 100.0], '% Strand (DSSP)', 1000)
-plot_indcomb(["brush_3HIS+GLYx7_", "4x4_0.0A_RMSD_data.csv"], 12, [0.0, 0.5], 'RMSD from linear / nm', 1000)
-plot_indcomb(["brush_3HIS+GLYx7_", "4x4_0.0A_RGYR_data.csv"], 12, [0.0, 2.0], '$R_{gyr}$ / nm', 1000)
-plot_indcomb(["brush_3HIS+GLYx7_", "4x4_0.0A_E2E_data.csv"], 12, [0.0, 5.0], 'End-to-end Distance / nm', 1000)
+'''
+plot_indcomb(["brush_3HIS+GLYx7_", "4x4_0.0A_hel_data.csv"], 28, [-2.0, 100.0], '% Helicity (DSSP)', 1000)
+plot_indcomb(["brush_3HIS+GLYx7_", "4x4_0.0A_strand_data.csv"], 28, [-2.0, 100.0], '% Strand (DSSP)', 1000)
+plot_indcomb(["brush_3HIS+GLYx7_", "4x4_0.0A_RMSD_data.csv"], 28, [0.0, 0.5], 'RMSD from linear / nm', 1000)
+plot_indcomb(["brush_3HIS+GLYx7_", "4x4_0.0A_RGYR_data.csv"], 28, [0.0, 2.0], '$R_{gyr}$ / nm', 1000)
+plot_indcomb(["brush_3HIS+GLYx7_", "4x4_0.0A_E2E_data.csv"], 28, [0.0, 5.0], 'End-to-end Distance / nm', 1000)
