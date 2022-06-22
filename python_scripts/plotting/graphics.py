@@ -20,14 +20,16 @@ colours = ['#31859C',   # FS1 & BS1
            '#7030A0',   # FS2 & BS2
           ]
 
+
 def hills_plot(hills_data, pdb, funnel_side, save_dir):
     """ Plot a simple line graph of HILLS file """
     plt.figure()
     plt.plot([x/1000 for x in hills_data[0]], hills_data[1], label=pdb)
     plt.legend()
     plt.title('{m}  |  {}  |  Hill Heights'.format(funnel_side, m=pdb))
-    plt.savefig('{}/{m}-{f}_Heights.png'\
-            .format(save_dir, f=funnel_side, m=pdb), bbox_inches='tight', dpi=300)
+    plt.savefig('{}/{m}-{f}_Heights.png'.format(save_dir, f=funnel_side, m=pdb),
+                bbox_inches='tight', dpi=300)
+
 
 def single_diffusion_plots(colvar_data, pdb, funnel_side, num_cvs, save_dir):
     """ plots the diffusion plots for X cvs."""
@@ -62,7 +64,8 @@ def single_diffusion_plots(colvar_data, pdb, funnel_side, num_cvs, save_dir):
                 .format(save_dir, f=funnel_side, m=pdb), bbox_inches='tight', dpi=300)
 
 
-def two_cv_contour(fes, pdb, funnel_side, axes, in_vmax, name, save_dir, ax):
+def two_cv_contour(fes, axes, in_vmax, ax, fp=None, pdb=None,
+                   funnel_side=None, name='fun-metad'):
     """ Plot a contour plot for 2 CVs"""
 
     fes[2] = fes[2]/4.184
@@ -70,38 +73,37 @@ def two_cv_contour(fes, pdb, funnel_side, axes, in_vmax, name, save_dir, ax):
     print('VMAX: ', max_non_inf)
     x_name, y_name = axes
     vmax = int(ceil(max_non_inf / 2.0)) * 2 if 'REW' in name else in_vmax
-    #vmax = 50
 
     x, y = np.meshgrid(fes[0], fes[1])
 
-    iso = round(2*max_non_inf/12)/2
+    # iso = round(2*max_non_inf/12)/2
 
     conts = np.arange(0., vmax+1, 2.0)
 
-    f_x = np.linspace(0.0, 4.5, 1000) # funnel lower & upper walls
-    sc = 3.0
-    b = 1.5     # funnel beta-cent
-    f = 0.15    # funnel wall buffer
-    h = 1.2     # funnel wall width
-    f_y = h*(1./(1.+np.exp(b*(f_x-sc))))+f
 
 #    ax = fig.add_subplot(plot_n, sharex=True, sharey=True)
     CS = ax.contourf(x, y, fes[2], conts, cmap='RdYlBu', antialiased=True)
     ax.contour(x, y, fes[2], conts, colors='k', linewidths=0.5, alpha=0.5,
                antialiased=True)
-    if 'REW' not in name:
+    if 'REW' not in name and fp is not None:
+        f_x = np.linspace(fp['lw'], fp['uw'], 1000)  # lower & upper walls
+        sc = fp['sc']   # funnel s-cent
+        b = fp['b']     # funnel beta-cent
+        f = fp['f']     # funnel wall buffer
+        h = fp['h']     # funnel wall width
+        f_y = h*(1./(1.+np.exp(b*(f_x-sc))))+f
         ax.plot(f_x, f_y, 'k')
         ax.set_xlim(-0.2, 5.0)
-        ax.set_ylim(-0.1, 2.0)
-        #ax.set_title('{m}  |  {}'.format(funnel_side, m=pdb))
+        ax.set_ylim(-0.1, 1.8)
+        # ax.set_title('{m}  |  {}'.format(funnel_side, m=pdb))
     else:
         print('?')
-        #plt.xlim(-0.2, 5.0)
-        #plt.ylim(-0.1, 2.0)
+        # plt.xlim(-0.2, 5.0)
+        # plt.ylim(-0.1, 2.0)
         ax.set_ylabel(y_name+' / nm')
-        #ax.title('{m}  |  {}  |  Reweighted Free Energy Surface'.format(funnel_side, m=pdb))
     ax.grid()
     return CS
+
 
 def make_ax(fig, n):
     """ Add axis (for multiplot) """
@@ -112,17 +114,18 @@ def make_ax(fig, n):
     ax.set_title('Times '+str(n))
     return fig
 
+
 def bubble_plot(csv, size_scale):
     """ Make bubble plot from csv """
     ddg = pd.read_csv(csv, sep=',')
-    #print(ddg.head)
-    sizes = (ddg["bonds"] +1)*size_scale
+    sizes = (ddg["bonds"] + 1)*size_scale
     sns.scatterplot(x='weight', y='fs2', s=sizes, data=ddg,)
     sns.scatterplot(x='weight', y='fs1', s=sizes, data=ddg, legend='brief')
     plt.xlabel('Molecular Weight / Da')
     plt.ylabel('Deviation from Experimental $\Delta$G / kcal/mol')
     plt.grid(alpha=0.5, zorder=1)
     plt.savefig(csv+'_bubble.png', dpi=300, transparent=True)
+
 
 def ddg_scatter(csv, mode):
     """ Make custom scatter from ddG data """
@@ -161,6 +164,7 @@ def ddg_scatter(csv, mode):
     plt.legend()
     plt.savefig(csv.split('.')[0]+str(mode)+'_scatter.png',
                 dpi=300, transparent=True)
+
 
 def convergence(fes_dir, ts_list, ax):
     """ Plot convergence of cv """
@@ -357,6 +361,7 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
                 texts.append(text)
 
     return texts
+
 
 def rmsf(rmsf_data, seq, grid=None, offset=None):
     '''

@@ -32,11 +32,11 @@ def colvar(filename, output):
     head = head.split()[2:]
     # read in old COLVAR file into dataFrame
     # filters out comment lines and splits columns via whitespace
-    old_col = pd.concat([df[df.time != "#!"] \
-                        for df in pd.read_csv(filename,
+    old_col = pd.concat([df for df in pd.read_csv(filename,
                                               delim_whitespace=True,
                                               names=head,
                                               skiprows=1,
+                                              comment='#',
                                               chunksize=1000)])
     # round timestamps to ensure successful merging
     old_col['int_time'] = old_col['time'].astype(float).astype(int)
