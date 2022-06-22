@@ -18,7 +18,7 @@ import seaborn as sns
 colours = ['#31859C',   # FS1 & BS1
            '#FFC000',   # Tunnel
            '#7030A0',   # FS2 & BS2
-          ]
+           ]
 
 
 def hills_plot(hills_data, pdb, funnel_side, save_dir):
