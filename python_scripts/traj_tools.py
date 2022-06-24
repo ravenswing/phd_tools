@@ -39,6 +39,7 @@ def align(in_str, ref_str, out_str, aln_mask='@CA,C,N,O', strip_mask=None):
     ref = _load_structure(ref_str)
     # run the alignment
     aligned = pt.align(to_align, mask=aln_mask, ref=ref)
+    aligned = aligned.autoimage()
     # if strip is required, perform the strip
     if strip_mask is not None:
         aligned = aligned.strip(strip_mask)
@@ -46,19 +47,23 @@ def align(in_str, ref_str, out_str, aln_mask='@CA,C,N,O', strip_mask=None):
     pt.write_traj(out_str, aligned, overwrite=True)
 
 
-def cut_traj(trj_path, top, out_path, denom=100, split=False):
+def cut_traj(trj_path, top, out_path, denom=100, split=False, strip_mask=None):
     full_trj = pt.iterload(trj_path, top)
     full_trj = full_trj.autoimage()
     print(f'Loaded trajectory: {trj_path}')
     if not split:
         start_point = 1
         print(f'NOT cutting traj so starting from {start_point}')
+        N = int(full_trj.n_frames/denom)
     else:
         start_point = int(full_trj.n_frames/2)
         print(f'CUTTING traj, starting from {start_point}')
-    N = int(full_trj.n_frames/denom)
+        N = int(start_point/denom)
     print(f'Writing {N} frames')
     frames = np.linspace(start_point, full_trj.n_frames, num=N, dtype=int)-1
+    # if strip is required, perform the strip
+    if strip_mask is not None:
+        full_trj = full_trj.strip(strip_mask)
     pt.write_traj(out_path, full_trj, frame_indices=frames, overwrite=True)
     print(f'Saved new trajectory: {out_path}')
 
