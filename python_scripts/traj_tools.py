@@ -80,3 +80,61 @@ def measure_rmsd(trj_path, top_path, ref_str, rmsd_mask, aln_mask='@CA,C,N,O'):
     # calculate rmsd
     data = pt.analysis.rmsd.rmsd_nofit(traj, mask=rmsd_mask, ref=ref)
     return data
+
+
+def measure_rmsf(trj_path, top_path, ref_str, rmsf_mask, aln_mask='@CA,C,N,O'):
+    # load the trajectory w. topology
+    traj = pt.iterload(trj_path, top_path)
+    # load ref. structure if path is given
+    ref = _load_structure(ref_str)
+    # run autoimage to cluster and centre traj.
+    traj = traj.autoimage()
+    # align the traj. using backbone atoms
+    traj = pt.align(traj, mask=aln_mask, ref=ref)
+    # calculate rmsd
+    data = pt.rmsf(traj, mask=rmsf_mask, options='byres')
+    return data
+
+
+def extract_frame(trj_path, top, out_path,
+                  ref_str=None, split=False, strip_mask=None, frame='final'):
+    full_trj = pt.iterload(trj_path, top)
+    full_trj = full_trj.autoimage()
+
+   #full_trj = pt.align(full_trj, mask=':5-360@CA,C,N,O', ref=ref)
+    print(f'Loaded trajectory: {trj_path}')
+    N = int(full_trj.n_frames)-1 if frame=='final' else int(frame)-1
+    print(f'Writing {N+1}th frame as pbd')
+    pt.write_traj(out_path, full_trj, frame_indices=[N], overwrite=True)
+    print(f'Saved new trajectory: {out_path}')
+
+
+def measure_distance(trj_path, top_path, atom_pair, ref_str,
+                     aln_mask='@CA,C,N,O'):
+    # load the trajectory w. topology
+    traj = pt.iterload(trj_path, top_path)
+    # load ref. structure if path is given
+    ref = _load_structure(ref_str)
+    # run autoimage to cluster and centre traj.
+    traj = traj.autoimage()
+    # align the traj. using backbone atoms
+    traj = pt.align(traj, mask=aln_mask, ref=ref)
+    # calculate distance (A) between two pairs/groups
+    data = pt.distance(traj, f"{atom_pair[0]} {atom_pair[1]}")
+    return data
+
+
+def measure_angle(trj_path, top_path, angle_atoms, ref_str,
+                  aln_mask='@CA,C,N,O'):
+    # load the trajectory w. topology
+    traj = pt.iterload(trj_path, top_path)
+    # load ref. structure if path is given
+    ref = _load_structure(ref_str)
+    # run autoimage to cluster and centre traj.
+    traj = traj.autoimage()
+    # align the traj. using backbone atoms
+    traj = pt.align(traj, mask=aln_mask, ref=ref)
+    # calculate angle between set of atoms
+    data = pt.dihedral(traj=traj, mask=angle_atoms)
+    return data
+
