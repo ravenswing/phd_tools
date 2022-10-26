@@ -13,12 +13,8 @@ $GMX solvate -cp ${name}_box.gro -o ${name}_sol.gro -p $name.top
 
  # add ions to neutralise or to reach 0.15 moldm-3 NaCl concentration
 $GMX grompp -f prep.mdp -c ${name}_sol.gro -p $name.top -o ions.tpr -maxwarn 1
-echo SOL | $GMX genion -s ions.tpr -o ${name}.gro -p $name.top -pname NA -nname CL -neutral
-#echo SOL | $GMX genion -s ions.tpr -o ${name}.gro -p $name.top -pname NA -nname CL -neutral -conc 0.15
-
-# reshape to visualise
-#$GMX grompp -f prep.mdp -c ${name}.gro -p $name.top -o reshape.tpr
-#echo System | $GMX trjconv -f ${name}.gro -s reshape.tpr -o Readable_${name}.gro -pbc mol -ur compact
+#echo SOL | $GMX genion -s ions.tpr -o ${name}.gro -p $name.top -pname NA -nname CL -neutral
+echo SOL | $GMX genion -s ions.tpr -o ${name}.gro -p $name.top -pname NA -nname CL -neutral -conc 0.15
 
 # generate alpha-Carbon position restraints
 echo C-alpha | $GMX genrestr -f ${name}.gro -o posres_CAlpha.itp
