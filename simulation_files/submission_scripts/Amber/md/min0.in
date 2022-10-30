@@ -1,0 +1,54 @@
+#
+#Minimizacion 1
+#
+ &cntrl
+  imin=1,maxcyc=10000,ncyc=2000,
+  drms=0.001,ntb=1,ntp=0,cut=10.0,
+  ibelly=1,
+ &end
+minimizacion de los h del sistema
+FIND
+FIND\
+* H  * *
+* HD * *
+* HE * *
+* HA * *
+* HB * *
+* H1 * *
+* H2 * *
+* H3 * *
+* HB2 * *
+* HB3 * *
+* HD1 * *
+* HD2 * *
+* HE1 * *
+* HE2 * *
+* HG1 * *
+* HG2 * *
+* HG3 * *
+* 1HE2 * *
+* 2HE2 * *
+* 1HD1 * *
+* 2HD1 * *
+* 3HD1 * *
+* 1HD2 * *
+* 2HD2 * *
+* 3HD2 * *
+* 1HG2 * *
+* 2HG2 * *
+* 3HG2 * *
+* 1HG1 * *
+* 2HG1 * *
+* 3HG1 * *
+* HZ * *
+* HZ1 * *
+* HZ2 * *
+* HZ3 * *
+* HA1 * *
+* HA2 * *
+* HA3 * *
+SEARCH
+RES 1 574
+END
+END
+

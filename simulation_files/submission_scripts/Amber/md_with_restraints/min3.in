@@ -1,0 +1,12 @@
+Inimizacion 2
+#
+ &cntrl
+  imin=1,maxcyc=10000,ncyc=500, ntwr=100, ntwe=100, nmropt= 1,
+  drms=0.01,ntb=1,ntp=0,cut=11., 
+ &end
+ &wt type='DUMPFREQ', istep1=500 /
+ &wt type='END'   /
+ LISTOUT=restraints.md
+ DISANG=restraints.list
+ DUMPAVE=restraints.ave.md
+

@@ -1,0 +1,74 @@
+C=O
+#
+# GLYCINE 25
+ &rst
+  ixpk= 0, nxpk= 0, iat=168,5581, r1= 2.1, r2= 2.70, r3= 3.20, r4= 3.70,
+      rk2=10.0, rk3=10.0, ir6=1, ialtd=0,
+  &end
+#
+#  GLYCINE 25
+ &rst
+  ixpk= 0, nxpk= 0, iat=168,5582, r1= 2.1, r2= 2.70, r3= 3.20, r4= 3.70,
+      rk2=10.0, rk3=10.0, ir6=1, ialtd=0,
+ &end
+#
+# LYSINE 36
+ &rst
+  ixpk= 0, nxpk= 0, iat=532,5560, r1= 2.1, r2= 2.70, r3= 3.20, r4= 3.70,
+      rk2=10.0, rk3=10.0, ir6=1, ialtd=0,
+  &end
+
+# THREONINE 43
+ &rst
+  ixpk= 0, nxpk= 0, iat=668,5586, r1= 2.1, r2= 2.70, r3= 3.20, r4= 3.70,
+      rk2=10.0, rk3=10.0, ir6=1, ialtd=0,
+  &end
+#
+# VALINE 79
+ &rst
+  ixpk= 0, nxpk= 0, iat=1236,5553, r1= 2.1, r2= 2.70, r3= 3.20, r4= 3.70,
+      rk2=10.0, rk3=10.0, ir6=1, ialtd=0,
+  &end
+#
+# VALINE 79
+ &rst
+  ixpk= 0, nxpk= 0, iat=1251,5555, r1= 2.1, r2= 2.70, r3= 3.20, r4= 3.70,
+      rk2=10.0, rk3=10.0, ir6=1, ialtd=0,
+  &end
+#
+# GLYCINE 106
+ &rst
+  ixpk= 0, nxpk= 0, iat=1673,5630, r1= 2.1, r2= 2.70, r3= 3.20, r4= 3.70,
+      rk2=10.0, rk3=10.0, ir6=1, ialtd=0,
+  &end
+#
+# ASPARTIC ACID 297
+ &rst
+  ixpk= 0, nxpk= 0, iat=4605,5588, r1= 2.1, r2= 2.70, r3= 3.20, r4= 3.70,
+      rk2=10.0, rk3=10.0, ir6=1, ialtd=0,
+  &end
+#
+# ASPARTIC ACID 297
+ &rst
+  ixpk= 0, nxpk= 0, iat=4606,5589, r1= 2.1, r2= 2.70, r3= 3.20, r4= 3.70,
+      rk2=10.0, rk3=10.0, ir6=1, ialtd=0,
+  &end
+#
+# ALANINE 314
+ &rst
+  ixpk= 0, nxpk= 0, iat=4860,5603, r1= 2.1, r2= 2.70, r3= 3.20, r4= 3.70,
+      rk2=10.0, rk3=10.0, ir6=1, ialtd=0,
+  &end
+#
+# ALANINE 314
+ &rst
+  ixpk= 0, nxpk= 0, iat=4860,5605, r1= 2.1, r2= 2.70, r3= 3.20, r4= 3.70,
+      rk2=10.0, rk3=10.0, ir6=1, ialtd=0,
+  &end
+#
+# FAD
+ &rst
+  ixpk= 0, nxpk= 0, iat=5629,5586, r1= 2.1, r2= 2.70, r3= 3.20, r4= 3.70,
+      rk2=10.0, rk3=10.0, ir6=1, ialtd=0,
+  &end
+

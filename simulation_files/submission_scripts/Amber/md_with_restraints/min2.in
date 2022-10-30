@@ -1,0 +1,16 @@
+#
+# Minimization 2
+#
+ &cntrl
+  imin=1,maxcyc=10000,ncyc=2000,
+  drms=0.01,ntb=1,ntp=0,cut=10.,
+  dielc=1.0,
+  ntf=1, ntc=1, tol=0.0005,
+  ntt=1,
+  ibelly=1,
+ &end
+minimization of waters
+RES  393 20301  
+END
+END
+

@@ -1,0 +1,25 @@
+#!/bin/bash
+#SBATCH -J mol
+#SBATCH -e mol.%j.err
+#SBATCH -o mol.%j.out
+#SBATCH --mail-type=BEGIN,END,FAIL
+#SBATCH -p std
+#SBATCH -n 1
+#SBATCH -c 4
+#SBATCH --time=0-24
+
+module load apps/gaussian/g16b1
+
+##
+#  Modify the input and output files!
+INPUT_FILES=/scratch/ubator01/RHYS/mol.com
+OUTPUT_FILES=/scratch/ubator01/RHYS/mol.log
+
+##
+#  You don't need to modify nothing more
+cp -r ${INPUT_FILES} ${SCRATCH}
+cd ${SCRATCH}
+
+srun g16 < mol.com > mol.log
+
+cp mol.* /scratch/ubator01/RHYS/

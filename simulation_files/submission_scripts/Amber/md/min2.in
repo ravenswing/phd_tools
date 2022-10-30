@@ -1,0 +1,8 @@
+#  
+# Minimizacion completa
+#
+ &cntrl
+  imin=1,maxcyc=5000,ncyc=4000,
+  drms=0.01,ntb=1,ntp=0,cut=10.0,
+ &end
+
