@@ -1,0 +1,14 @@
+#  
+# Minimisation 2 - Full System w. Restraints
+#
+ &cntrl
+  imin=1,maxcyc=5000,ncyc=4000,
+  drms=0.01,ntb=1,ntp=0,cut=10.0,
+  nmropt=1,
+ &end
+ &wt type='DUMPFREQ', istep1=500 /
+ &wt type='END'   /
+ LISTOUT=restraints.md
+ DISANG=restraints.list
+ DUMPAVE=restraints.ave.md
+

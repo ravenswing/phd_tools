@@ -1,0 +1,25 @@
+echo "Var1    : $1"
+echo "Var2    : $2"
+echo "Var3    : $3"
+
+#
+## GENERATES WORK DIRECTORY IN THE WORKING NODE 
+#
+
+pmemd.cuda -O                                     \
+                           -i   eq_3.in               \
+                           -p   $2.top          \
+                           -c   $3.r               \
+                           -r   $1.r                      \
+                           -x   $1.x                      \
+			   -o   $1.o                      \
+		           -ref $3.r               \
+		           -inf $1.inf
+
+if [ -s $1.r ]
+then
+gzip -f $1.o 
+fi
+
+##BYE BYE
+exit 0

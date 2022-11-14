@@ -1,0 +1,13 @@
+#  
+# Minimisation 1 - Waters only
+#
+ &cntrl
+  imin=1,maxcyc=10000,ncyc=2000,
+  drms=0.01,ntb=1,ntp=0,cut=10.0,
+  ibelly=1,
+ &end
+minimisation of waters
+RES WATER_RES
+END
+END
+

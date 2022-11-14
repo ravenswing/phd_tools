@@ -1,0 +1,20 @@
+#
+# MD - Reducing Restraints - k = 2.5
+#
+ &cntrl
+      imin=0,  ntx=5,  irest=1,
+      ntxo=1, ntpr=2500, ntwr=2500, ntwx=2500, ntwe=2500,
+      cut=10., ioutfm=1, vlimit=10,
+      nstlim=2500000, dt=0.002,
+      ntf=2, ntc=2, tol=0.0005,
+      ntb=1, ntp=0,
+      ntt=1, tautp=10.0
+      nscm=100, nmropt=1,
+      temp0=300.,
+ &end
+ &wt type='DUMPFREQ', istep1=500 /
+ &wt type='END'   /
+ LISTOUT=restraints.md
+ DISANG=restraints_k2.list
+ DUMPAVE=restraints.ave.md
+

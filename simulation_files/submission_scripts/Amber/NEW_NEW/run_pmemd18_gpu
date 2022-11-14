@@ -1,0 +1,47 @@
+echo "AMBERHOME : $AMBERHOME"
+echo "SGE_O_WORKDIR : $SGE_O_WORKDIR"
+echo "TMPDIR : $TMPDIR"
+echo "nslots : $NSLOTS"
+echo "Var1    : $1"
+echo "Var2    : $2"
+echo "Var3    : $3"
+
+#
+## GENERATES WORK DIRECTORY IN THE WORKING NODE 
+#
+
+ $AMBERHOME/bin/pmemd.cuda -O                                     \
+                           -i   $SGE_O_WORKDIR/mdin               \
+                           -p   $SGE_O_WORKDIR/$2.top          \
+                           -c   $SGE_O_WORKDIR/$3.r               \
+                           -r   $TMPDIR/$1.r                      \
+                           -x   $TMPDIR/$1.x                      \
+			   -o   $TMPDIR/$1.o                      \
+		           -ref $SGE_O_WORKDIR/$3.r               \
+		           -inf $TMPDIR/$1.inf
+
+if [ -s $TMPDIR/$1.r ]
+then
+gzip -f $TMPDIR/$1.o 
+fi
+
+## OUTPUTS ARE COPIED FROM THE WORK NODE
+#
+# cp     $TMPDIR/$1.o.gz         $SGE_O_WORKDIR
+# cp     $TMPDIR/$1.r            $SGE_O_WORKDIR
+# cp     $TMPDIR/$1.x            $SGE_O_WORKDIR
+# cp     $TMPDIR/$1.inf          $SGE_O_WORKDIR
+# cp     $TMPDIR/$1.old.r        $SGE_O_WORKDIR
+# cp     $TMPDIR/$1.r.new        $SGE_O_WORKDIR  
+# cp     $TMPDIR/cpptraj*        $SGE_O_WORKDIR   
+#
+#  rm -f     $TMPDIR/$1.o.gz    
+#  rm -f     $TMPDIR/$1.r    
+#  rm -f     $TMPDIR/$1.x    
+#  rm -f     $TMPDIR/$1.inf 
+#  rm -f     $TMPDIR/$1.old.r
+#  rm -f     $TMPDIR/$1.r.new 
+#  rm -f     $TMPDIR/cpptraj*
+
+##BYE BYE
+exit 0

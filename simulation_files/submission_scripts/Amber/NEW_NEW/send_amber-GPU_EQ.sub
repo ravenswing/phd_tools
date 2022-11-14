@@ -1,0 +1,40 @@
+#!/bin/bash 
+
+#$ -S /bin/bash
+#$ -N hola
+#$ -pe smp 1
+#$ -q iqtc10_g1819_gpu.q
+#$ -cwd 
+#$ -o h.out
+#$ -e e.err
+# Remove the first '#' of the following 2 lines if you want to receive an email when the job ends.
+#$ -m e 
+#$ -M barkat246@hotmail.com
+
+# Load the modules needed 
+source /etc/profile
+
+module load amber/20_multigpu
+
+export OMP_NUM_THREADS=1
+
+# Copy inputs and files needed to the directory where the jobs will run
+echo " SGE_O_WORKDIR : $SGE_O_WORKDIR"
+echo " nslots : $NSLOTS "
+echo " TMPDIR : $TMPDIR "
+cd $TMPDIR 
+cp -r $SGE_O_WORKDIR/* .
+
+export CUDA_VISIBLE_DEVICES=`cat $TMPDIR/.gpus`
+
+$SGE_O_WORKDIR/run_pmemd18_gpu_eq1 a2b2_holoATP_eq1  a2b2_holoATP  a2b2_holoATP_min2
+$SGE_O_WORKDIR/run_pmemd18_gpu_eq2 a2b2_holoATP_eq2  a2b2_holoATP  a2b2_holoATP_eq1
+$SGE_O_WORKDIR/run_pmemd18_gpu_eq3 a2b2_holoATP_eq3  a2b2_holoATP  a2b2_holoATP_eq2
+$SGE_O_WORKDIR/run_pmemd18_gpu_eq4 a2b2_holoATP_eq4  a2b2_holoATP  a2b2_holoATP_eq3
+$SGE_O_WORKDIR/run_pmemd18_gpu_eq5 a2b2_holoATP_eq5  a2b2_holoATP  a2b2_holoATP_eq4
+$SGE_O_WORKDIR/run_pmemd18_gpu_eq6 a2b2_holoATP_eq6  a2b2_holoATP  a2b2_holoATP_eq5
+
+cp -r * $SGE_O_WORKDIR/.
+
+done
+
