@@ -4,7 +4,7 @@
 #SBATCH --qos=class_a
 #SBATCH --cpus-per-task=2
 #SBATCH --ntasks-per-node=24
-#SBATCH --nodes=2
+#SBATCH --nodes=4
 
 module purge
 module load intel/2020.1

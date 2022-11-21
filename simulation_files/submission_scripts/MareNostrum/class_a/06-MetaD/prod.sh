@@ -29,9 +29,12 @@ cp ../01-Min/min.tpr .
 
 # -------------------------- Start Producion MetaD  --------------------------
 
-$GMX grompp -f prod.mdp -c md.gro -p $FN.top -o prod.tpr -t md.cpt -r md.gro -n i.ndx -pp processed.top
-srun gmx_mpi mdrun -s prod.tpr -deffnm metad_${FN} -plumed plumed_${FN}.dat -maxh 71.5
+# define std filenames
+traj=metad_${FN}
 
-cp metad_${FN}.cpt metad_${FN}_1.cpt
-cp metad_${FN}_prev.cpt metad_${FN}_1_prev.cpt
+$GMX grompp -f prod.mdp -c md.gro -p $FN.top -o prod.tpr -t md.cpt -r md.gro -n i.ndx -pp processed.top
+srun gmx_mpi mdrun -s prod.tpr -deffnm ${traj} -plumed plumed_${FN}.dat -maxh 71.5
+
+cp ${traj}.cpt ${traj}_1.cpt
+cp ${traj}_prev.cpt ${traj}_1_prev.cpt
 

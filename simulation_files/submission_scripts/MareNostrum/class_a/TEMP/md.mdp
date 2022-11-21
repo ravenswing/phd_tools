@@ -14,8 +14,8 @@
 integrator               = md                       ; leap-frog algorithm for Newton eq.
 tinit                    = 0
 dt                       = 0.002                    ; in ps
-;nsteps                   = 500000                   ; 1.00   ns
-nsteps                   = 250000000                ; 500.00   ns
+;nsteps                   = 5000000                  ; 10.00   ns
+nsteps                   = 500000000                ; 1 us
 init-step                = 0
 ;----------------------------------
 xtc-grps                 = Protein_LIG

@@ -1,8 +1,8 @@
 ;
-;       File 'nvt_MD_CE.mdp' was generated
+;       File 'npt_EQ_CE.mdp' was generated
 ;       By user: carol
 ;       On host: tramuntana
-;       At date: Tue Jul 17 22:30:38 BST 2018
+;       At date: Wed Jun 27 16:40:38 BST 2018
 ;
 
 
@@ -14,10 +14,10 @@
 integrator               = md                       ; leap-frog algorithm for Newton eq.
 tinit                    = 0
 dt                       = 0.002                    ; in ps
-;nsteps                   = 500000                   ; 1.00   ns
-nsteps                   = 250000000                ; 500.00   ns
+nsteps                   = 5000000                  ; 10.00   ns
 init-step                = 0
 ;----------------------------------
+define                   = -DPOSRES  ; position restrain the protein and the ligand
 xtc-grps                 = Protein_LIG
 ;----------------------------------
 ; COM (center of mass) parameters
@@ -98,7 +98,7 @@ ref_t                    = 300     300              ; reference temperature, one
 ;----------------------------------
 ; Pressure coupling
 ;----------------------------------
-pcoupl                   = no                       ; Pressure coupling OFF --> NVT
+pcoupl                   = Berendsen                ; Pressure coupling on in NPT
 pcoupltype               = isotropic                ; uniform scaling of box vectors
 nstpcouple               = -1
 tau-p                    = 0.5
@@ -113,7 +113,7 @@ refcoord_scaling         = com
 ;----------------------------------------------
 ;----------------------------------------------
 gen-vel                  = no
-;gen-temp                = 300                      ; only if gen-vel is on
+;gen-temp                 = 300                      ; only if gen-vel is on
 
 
 ;----------------------------------------------
@@ -123,12 +123,12 @@ gen-vel                  = no
 ;----------------------------------------------
 constraints              = all-bonds                ; all bonds (even heavy atom-H bonds) constrained
 constraint-algorithm     = Lincs                    ; holonomic constraints
-continuation             = yes                      ; Restarting after NPT-2 Equil
+;continuation            = yes                      ; Restarting after NVT
 ;----------------------------------
 ; Number of iterations in the final step of LINCS. (1 = normal, 2 = NVE, 4-8 = minimization)
 ;----------------------------------
 lincs-order              = 4                        ; also related to accuracy
-lincs-iter               = 2                        ; accuracy of LINCS
+lincs-iter               = 1                        ; accuracy of LINCS
 lincs-warnangle          = 30
 
 
@@ -139,18 +139,18 @@ lincs-warnangle          = 30
 ;----------------------------------------------
 ; Output frequency for coords (x), vel (v) and forces (f)
 ;----------------------------------
-nstxout                  = 10000                     ; save coordinates every 20.0 ps
-nstvout                  = 10000                     ; save velocities every 20.0 ps
+nstxout                  = 5000                     ; save coordinates every 10.0 ps
+nstvout                  = 5000                     ; save velocities every 10.0 ps
 nstfout                  = 0
 ;----------------------------------
 ; Output frequency for energies to log file and energy file
 ;----------------------------------
-nstlog                   = 10000                     ; update log file every 20.0 ps
-nstenergy                = 1000                      ; save energies every 2.0 ps
+nstlog                   = 5000                     ; update log file every 10.0 ps
+nstenergy                = 1000                     ; save energies every 2.0 ps
 ;----------------------------------
 ; Output frequency and precision for .xtc file
 ;----------------------------------
-nstxout-compressed     = 1000                        ; save xtc every 1.0 ps
-xtc-precision          = 1000
+nstxout-compressed     = 5000                     ; save xtc every 10.0 ps
+;xtc-precision           = 1000
 
 

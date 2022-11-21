@@ -17,17 +17,17 @@ module load gromacs/2021.4-plumed.2.8.0
 export FN=$(cd ..; basename -- "$PWD")
 export GMX=gmx_mpi
 
-# ------------------------------ Further MetaD --------------------------------
+# -------------------------------- Further MD --------------------------------
 
 # set the max time
-tmax=500000
+tmax=1000000
 
 # define std filenames
 tpr=min.tpr
-traj=metad_${FN}
+traj=md
 ndx=i.ndx
 
-srun $GMX mdrun -s prod.tpr -deffnm ${traj} -cpi ${traj}.cpt -append -plumed plumed_${FN}.dat -maxh 70.5
+srun $GMX mdrun -s md.tpr -deffnm ${traj} -cpi ${traj}.cpt -append -maxh 71.5
 
 num=RUN_NUMBER 
 
