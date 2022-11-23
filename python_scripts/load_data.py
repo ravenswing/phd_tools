@@ -8,7 +8,6 @@
 import numpy as np
 import pandas as pd
 
-
 def hills(filename):
     hills = [[], []]
     with open(filename) as f:
@@ -26,11 +25,11 @@ def colvar(filename, output):
     head = head.split()[2:]
     # read in old COLVAR file into dataFrame
     # filters out comment lines and splits columns via whitespace
-    old_col = pd.concat([df[df.time != "#!"]
-                        for df in pd.read_csv(filename,
+    old_col = pd.concat([df for df in pd.read_csv(filename,
                                               delim_whitespace=True,
                                               names=head,
                                               skiprows=1,
+                                              comment='#',
                                               chunksize=1000)])
     # round timestamps to ensure successful merging
     old_col['int_time'] = old_col['time'].astype(float).astype(int)
@@ -92,3 +91,16 @@ def cd(filename):
         data = [line for line in lines if line[0] not in ("@", "#")]
     data = [[float(val) for val in line.split()] for line in data]
     return data
+
+'''
+def cd(filename):
+    """ load CD data """
+    with open(filename) as f:
+        lines = f.readlines()
+        data = [l for l in lines if l[0] not in ("@", "#")]
+    data = [[float(val) for val in line.split()] for line in data]
+    data = [line for line in data if len(line) == 2]
+    if "SESCA" in filename: print(data)
+    out_data = [[l[0] for l in data], [l[1] for l in data]]
+    return out_data
+'''
