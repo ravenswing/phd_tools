@@ -17,13 +17,13 @@ module load gromacs/2021.4-plumed.2.8.0
 export FN=$(cd ..; basename -- "$PWD")
 export GMX=gmx_mpi
 
-cp ../0345-EQ-MD/md.gro .
-cp ../0345-EQ-MD/md.cpt .
-cp ../0345-EQ-MD/${FN}.top .
+cp ../../../${FN}/0345-EQ-MD/md.gro .
+cp ../../../${FN}/0345-EQ-MD/md.cpt .
+cp ../../../${FN}/0345-EQ-MD/${FN}.top .
 
-cp ../01-Min/i.ndx .
-cp ../01-Min/*.itp .
-cp ../01-Min/min.tpr .
+cp ../../../${FN}/01-Min/i.ndx .
+cp ../../../${FN}/01-Min/*.itp .
+cp ../../../${FN}/01-Min/min.tpr .
 
 #sed -i 's/Water_and_ions/Water/g' prod.mdp
 
@@ -33,7 +33,7 @@ cp ../01-Min/min.tpr .
 traj=metad_${FN}
 
 $GMX grompp -f prod.mdp -c md.gro -p $FN.top -o prod.tpr -t md.cpt -r md.gro -n i.ndx -pp processed.top
-srun gmx_mpi mdrun -s prod.tpr -deffnm ${traj} -plumed plumed_${FN}.dat -maxh 71.5
+srun $GMX mdrun -s prod.tpr -deffnm ${traj} -plumed plumed_${FN}.dat -maxh 71.5
 
 cp ${traj}.cpt ${traj}_1.cpt
 cp ${traj}_prev.cpt ${traj}_1_prev.cpt

@@ -8,7 +8,7 @@ echo -e "\t$path"
 echo "#SBATCH --chdir=$path" >> _run.sh
 
 name=$(cd ..; basename -- "$PWD")
-echo "#SBATCH --job-name=$name0" >> _run.sh
+echo "#SBATCH --job-name=$name" >> _run.sh
 
 cat prod.sh >> _run.sh 
 
