@@ -37,8 +37,8 @@ def hills_plot(hills_data, pdb, funnel_side, save_dir):
 def single_diffusion_plots(colvar_data, pdb, funnel_side, num_cvs, save_dir):
     """ plots the diffusion plots for X cvs."""
     if num_cvs == 2:
-        x_name = "X-axis"
-        y_name = "Y-axis"
+        x_name = 'X-axis'
+        y_name = 'Y-axis'
         plt.figure()
         plt.plot([x/1000 for x in colvar_data[:, 0]],
                  colvar_data[:, 1], label=pdb)
@@ -111,7 +111,7 @@ def two_cv_contour(fes, axes, in_vmax, ax, fp=None, pdb=None,
 
 
 def OLD_two_cv_contour(fes, pdb, axes, in_vmax, ax):
-    """ Plot a contour plot for 2 CVs"""
+    ''' Plot a contour plot for 2 CVs'''
     x = fes[:, 0]
     y = fes[:, 1]
     z = fes[:, 2]
