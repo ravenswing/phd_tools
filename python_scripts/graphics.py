@@ -75,7 +75,7 @@ def two_cv_contour(fes, axes, in_vmax, ax, fp=None, pdb=None,
 
     fes[2] = fes[2]/4.184
     max_non_inf = np.amax(fes[2][np.isfinite(fes[2])])
-    print('VMAX: ', max_non_inf)
+    #print('VMAX: ', max_non_inf)
     x_name, y_name = axes
     vmax = int(ceil(max_non_inf / 2.0)) * 2 if 'REW' in name else in_vmax
 
