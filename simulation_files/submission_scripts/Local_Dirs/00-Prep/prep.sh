@@ -2,7 +2,9 @@
 
 # ----------  SYSTEM BUILING  ----------
 
-export name=$(cd ..; basename -- "$PWD")
+d1=$(cd ..; basename -- "$PWD")
+d2=$(basename -- "$PWD")
+export name="${d1}+${d2}"
 export GMX=gmx_mpi
 
 # build dodecahedral box w/ 1.2 nm clearance
@@ -13,8 +15,8 @@ $GMX solvate -cp ${name}_box.gro -o ${name}_sol.gro -p $name.top
 
  # add ions to neutralise or to reach 0.15 moldm-3 NaCl concentration
 $GMX grompp -f prep.mdp -c ${name}_sol.gro -p $name.top -o ions.tpr -maxwarn 1
-#echo SOL | $GMX genion -s ions.tpr -o ${name}.gro -p $name.top -pname NA -nname CL -neutral
-echo SOL | $GMX genion -s ions.tpr -o ${name}.gro -p $name.top -pname NA -nname CL -neutral -conc 0.15
+echo SOL | $GMX genion -s ions.tpr -o ${name}.gro -p $name.top -pname NA -nname CL -neutral
+#echo SOL | $GMX genion -s ions.tpr -o ${name}.gro -p $name.top -pname NA -nname CL -neutral -conc 0.15
 
 # generate alpha-Carbon position restraints
 echo C-alpha | $GMX genrestr -f ${name}.gro -o posres_CAlpha.itp
