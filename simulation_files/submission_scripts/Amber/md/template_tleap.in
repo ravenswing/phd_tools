@@ -1,0 +1,16 @@
+source leaprc.protein.ff14SB
+loadamberparams gaff2.dat
+loadamberparams frcmod.ionsjc_tip3p
+source leaprc.water.tip3p
+loadamberparams LIG_FRCMOD
+loadamberprep LIG_PREP
+holo = loadpdb COMPLEX_PDB
+saveamberparm holo OUTNAME_dry.prmtop OUTNAME_dry.crd
+savepdb holo OUTNAME_dry.pdb
+solvateoct holo TIP3PBOX 12 iso
+charge holo
+addions holo Na+ 0
+saveamberparm holo OUTNAME.prmtop OUTNAME.rst7
+savepdb holo OUTNAME.pdb
+quit
+
