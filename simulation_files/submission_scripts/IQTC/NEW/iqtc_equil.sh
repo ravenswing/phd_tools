@@ -33,6 +33,7 @@ export name=BASE_NAME
 echo "Running Step: Equilibration 1" >> run.log
 pmemd.cuda -O -i eq_1.in -p ${name}.prmtop -c ${name}_min2.rst7 -r ${name}_eq_1.rst7 -x ${name}_eq_1.x -e ${name}_eq_1.e -o ${name}_eq_1.o -ref ${name}_min2.rst7 -inf eq_1.inf
 gzip -f ${name}_eq_1.e ${name}_eq_1.o
+rsync -au * $SGE_O_WORKDIR/.
 
 for i in {2..6};
 do 
