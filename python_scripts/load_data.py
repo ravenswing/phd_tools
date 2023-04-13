@@ -7,6 +7,7 @@
 
 import numpy as np
 import pandas as pd
+import pickle
 
 
 def hills(filename):
@@ -93,6 +94,12 @@ def cd(filename):
         data = [s for s in lines if not s.startswith(('@', '#'))]
     data = [[float(val) for val in ln.split()] for ln in data]
     return data
+
+
+def p(filename):
+    ''' Simple 1D pickle load '''
+    with open(filename, 'rb') as f:
+        return pickle.load(f)
 
 
 '''
