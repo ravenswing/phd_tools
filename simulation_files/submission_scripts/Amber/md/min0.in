@@ -1,12 +1,12 @@
 #
-#Minimizacion 1
+# Minimisation 0 - Hydrogens
 #
  &cntrl
   imin=1,maxcyc=10000,ncyc=2000,
   drms=0.001,ntb=1,ntp=0,cut=10.0,
   ibelly=1,
  &end
-minimizacion de los h del sistema
+minimisation of hydrogens
 FIND
 FIND\
 * H  * *
@@ -48,7 +48,7 @@ FIND\
 * HA2 * *
 * HA3 * *
 SEARCH
-RES 1 574
+RES 1 PROT_END
 END
 END
 
