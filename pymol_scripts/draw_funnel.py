@@ -29,6 +29,7 @@
 import numpy as np
 from pymol import cmd
 
+
 def draw_funnel(p1, p2, s_cent=16, beta_cent=0.3, wall_width=15.5, wall_buffer=1.5, lower_wall=0, upper_wall=32, vec_step=2.5, angle_sample=18):
     s_cent = float(s_cent)
     beta_cent = float(beta_cent)
