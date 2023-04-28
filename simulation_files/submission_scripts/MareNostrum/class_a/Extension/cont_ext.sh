@@ -17,24 +17,24 @@ module load gromacs/2021.4-plumed.2.8.0
 export FN=$(cd ..; basename -- "$PWD")
 export GMX=gmx_mpi
 
-# ------------------------------ Further MetaD --------------------------------
+# -------------------------- Continue Extended MetaD  -------------------------
 
 # set the max time
-tmax=500000
+tmax=750000
 
 # define std filenames
 tpr=min.tpr
 traj=metad_${FN}
 ndx=i.ndx
 
-srun $GMX mdrun -s prod.tpr -deffnm ${traj} -cpi ${traj}.cpt -append -plumed plumed_${FN}.dat -maxh 70.5
+srun $GMX mdrun -s prod2.tpr -deffnm ${traj} -cpi ${traj}.cpt -append -plumed plumed_${FN}.dat -maxh 70.5
 
 num=RUN_NUMBER 
 
 cp ${traj}.cpt ${traj}_${num}.cpt
 cp ${traj}_prev.cpt ${traj}_${num}_prev.cpt
 
-if [ ! -f ${traj}.gro ]; then bash CONTINUE.sh;
+if [ ! -f ${traj}.gro ]; then bash CONTINUE_EXT.sh;
 
 else
     echo Protein_LIG         | $GMX trjconv -s $tpr -f ${traj}.xtc       -o ${traj}_whole.xtc -pbc whole -n i.ndx
