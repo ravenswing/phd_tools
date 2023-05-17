@@ -11,23 +11,23 @@ select s0_2, a2b2 and (resi 81 and name ca or resi 11 and name ca)
 select s1_2, a2b2 and (resi 303 and name ca or resi 43 and name ca)
 
 
-select s2_1, a2b1 and (resi 309 or resi 277 or resi 301 or resi 39 or resi 78) and name ca
-select s2_2, a2b2 and (resi 310 or resi 277 or resi 302 or resi 39 or resi 78) and name ca
+select s0_N1, a2b1 and (resi 309 or resi 277 or resi 301 or resi 39 or resi 78) and name ca
+select s0_N2, a2b2 and (resi 310 or resi 277 or resi 302 or resi 39 or resi 78) and name ca
 
 com s0_1, object=p0_1
 com s1_1, object=p1_1
 com s0_2, object=p0_2
 com s1_2, object=p1_2
-com s2_1, object=p2_1
-com s2_2, object=p2_2
+com s0_N1, object=p0_N1
+com s0_N1, object=p0_N2
 
 draw_funnel p0_1, p1_1, s_cent=25, beta_cent=0.10, wall_width=15, wall_buffer=1.5, lower_wall=0, upper_wall=45, vec_step=2.5, angle_sample=18
 set_name funnel, funnel_a2b1
 draw_funnel p0_2, p1_2, s_cent=25, beta_cent=0.10, wall_width=15, wall_buffer=1.5, lower_wall=0, upper_wall=45, vec_step=2.5, angle_sample=18
 set_name funnel, funnel_a2b2
-draw_funnel p2_1, p1_1, s_cent=25, beta_cent=0.10, wall_width=15, wall_buffer=1.5, lower_wall=0, upper_wall=45, vec_step=2.5, angle_sample=18
+draw_funnel p0_N1, p1_1, s_cent=25, beta_cent=0.10, wall_width=15, wall_buffer=1.5, lower_wall=0, upper_wall=45, vec_step=2.5, angle_sample=18
 set_name funnel, NEWfunnel_a2b1
-draw_funnel p2_2, p1_2, s_cent=25, beta_cent=0.10, wall_width=15, wall_buffer=1.5, lower_wall=0, upper_wall=45, vec_step=2.5, angle_sample=18
+draw_funnel p0_N2, p1_2, s_cent=25, beta_cent=0.10, wall_width=15, wall_buffer=1.5, lower_wall=0, upper_wall=45, vec_step=2.5, angle_sample=18
 set_name funnel, NEWfunnel_a2b2
 
 load /home/rhys/Storage/ampk_metad_all_data/a2b1+A769/0345-EQ-MD/a2b1+A769_lastframe.pdb, a2b1_A769
