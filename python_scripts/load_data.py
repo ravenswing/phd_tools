@@ -20,7 +20,7 @@ def hills(filename):
     return hills
 
 
-def colvar(filename, output):
+def colvar(filename, output='as_pandas'):
     with open(filename) as f:
         head = f.readlines()[0]
     head = head.split()[2:]
