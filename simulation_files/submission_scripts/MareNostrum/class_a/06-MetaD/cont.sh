@@ -4,7 +4,7 @@
 #SBATCH --qos=class_a
 #SBATCH --cpus-per-task=2
 #SBATCH --ntasks-per-node=24
-#SBATCH --nodes=4
+#SBATCH --nodes=2
 
 module purge
 module load intel/2020.1
@@ -14,7 +14,6 @@ module load boost/1.75.0
 module load plumed/2.8.0
 module load gromacs/2021.4-plumed.2.8.0
 
-export FN=$(cd ..; basename -- "$PWD")
 export GMX=gmx_mpi
 
 # ------------------------------ Further MetaD --------------------------------
@@ -23,11 +22,13 @@ export GMX=gmx_mpi
 tmax=500000
 
 # define std filenames
-tpr=min.tpr
+FN=$(basename -- "$PWD")
 traj=metad_${FN}
+method=$(cd ..; basename -- "$PWD")
+tpr=prod.tpr
 ndx=i.ndx
 
-srun $GMX mdrun -s prod.tpr -deffnm ${traj} -cpi ${traj}.cpt -append -plumed plumed_${FN}.dat -maxh 70.5
+srun $GMX mdrun -s prod.tpr -deffnm ${traj} -cpi ${traj}.cpt -append -plumed ${FN}_${method}.dat -maxh 70.5
 
 num=RUN_NUMBER 
 
