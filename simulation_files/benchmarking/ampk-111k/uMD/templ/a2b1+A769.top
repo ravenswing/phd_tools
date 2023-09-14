@@ -1,0 +1,57 @@
+;
+;	File '/home/rhys/Storage/ampk_metad_all_data/a2b1+A769/00-Prep/a2b1.top' was generated
+;	By user: rhys (504)
+;	On host: optimus2
+;	At date: Mon Nov 21 14:11:47 2022
+;
+;	This is a standalone topology file
+;
+;	Created by:
+;	                     :-) GROMACS - gmx pdb2gmx, 2022 (-:
+;	
+;	Executable:   /usr/local/gromacs/bin/gmx_mpi
+;	Data prefix:  /usr/local/gromacs
+;	Working dir:  /home/rhys/phd_tools/SAPS
+;	Command line:
+;	  gmx_mpi pdb2gmx -f /home/rhys/Storage/ampk_metad_all_data/a2b1+A769/00-Prep/a2b1_apo.pdb -o /home/rhys/Storage/ampk_metad_all_data/a2b1+A769/00-Prep/a2b1.gro -p /home/rhys/Storage/ampk_metad_all_data/a2b1+A769/00-Prep/a2b1.top -i /home/rhys/Storage/ampk_metad_all_data/a2b1+A769/00-Prep/a2b1_posre.itp -ff amber14sb_gmx_s2p -water tip3p -ignh
+;	Force field was read from the standard GROMACS share directory.
+;
+
+; Include forcefield parameters
+#include "amber14sb_gmx_s2p.ff/forcefield.itp"
+
+; Include ligand atom types 
+#include "./ligand_atomtypes.itp" 
+
+; Include chain topologies
+#include "a2b1_Protein.itp"
+#include "a2b1_Protein2.itp"
+
+; Include ligand topology   
+#include "./ligand.itp" 
+
+; Include water topology
+#include "amber14sb_gmx_s2p.ff/tip3p.itp"
+
+#ifdef POSRES_WATER
+; Position restraint for each water oxygen
+[ position_restraints ]
+;  i funct       fcx        fcy        fcz
+   1    1       1000       1000       1000
+#endif
+
+; Include topology for ions
+#include "amber14sb_gmx_s2p.ff/ions.itp"
+
+[ system ]
+; Name
+Protein in water
+
+[ molecules ]
+; Compound        #mols
+Protein             1
+Protein2            1
+MOL                 1
+SOL         35138
+NA               102
+CL               102

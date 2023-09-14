@@ -1,0 +1,93 @@
+#####################################
+#    plumed.dat for Funnel MetaD    #
+#####################################
+#RESTART
+
+
+###############################################
+#  DEFINE RADIUS + CALC PROT-LIG VECTOR COMP  #
+###############################################
+MOLINFO STRUCTURE=./md_dry.pdb
+
+protein: GROUP ATOMS=1-5920
+ligand: GROUP ATOMS=5921-5958
+
+WHOLEMOLECULES STRIDE=1 ENTITY0=protein ENTITY1=ligand
+
+WRAPAROUND ATOMS=ligand AROUND=330 GROUPBY=38
+
+
+##########################
+#   DEFINITION_OF_COMs   #
+##########################
+lig: COM ATOMS=ligand
+p0: COM ATOMS=1334,166
+p1: COM ATOMS=4863,662
+
+
+########################
+###DEFINITION_OF_ARGs###
+########################
+# CV1: pp.proj = projection on the axis. The distance from the axis to the origin (along the axis)
+# CV2: ligand core rmsd
+pp: PROJECTION_ON_AXIS AXIS_ATOMS=p0,p1 ATOM=lig
+ligrmsd: RMSD REFERENCE=rmsd_weights.pdb TYPE=OPTIMAL NOPBC
+
+
+#######################
+###FUNNEL_PARAMETERS###
+#######################
+s_cent: CONSTANT VALUES=2.5      	                              # INFLEXION
+beta_cent: CONSTANT VALUES=1.0    	                              # STEEPNESS
+wall_width: CONSTANT VALUES=1.5   	                              # WIDTH (h)
+wall_buffer: CONSTANT VALUES=0.15  	                              # BUFFER (f, total width = WIDTH + BUFFER)
+lwall: LOWER_WALLS ARG=pp.proj AT=0.0 KAPPA=2000.0 EXP=2 EPS=1        # Lower Wall (the starting point of the funnel)
+uwall: UPPER_WALLS ARG=pp.proj AT=4.5 KAPPA=2000.0 EXP=2 EPS=1 	      # Upper Wall (the ending point of the funnel)
+
+
+##################################
+#########CALCULATE FUNNEL#########
+# Returns the radius of the funnel
+# at the current value of the cv
+##################################
+MATHEVAL ...
+	LABEL=wall_center
+	ARG=pp.proj,s_cent,beta_cent,wall_width,wall_buffer
+	VAR=s,sc,b,h,f
+	FUNC=h*(1./(1.+exp(b*(s-sc))))+f
+	PERIODIC=NO
+... MATHEVAL
+
+
+##############################
+#####POTENTIAL_PARAMETERS#####
+##############################
+scaling: CONSTANT VALUES=1.0
+spring: CONSTANT VALUES=1000.0
+
+
+##############################
+#######DEFINE_POTENTIAL#######
+##############################
+MATHEVAL ...
+	LABEL=wall_bias
+	ARG=pp.ext,spring,wall_center,scaling
+	VAR=z,k,zc,sf
+	FUNC=step(z-zc)*k*(z-zc)*(z-zc)/(sf*sf)
+	PERIODIC=NO
+... MATHEVAL
+
+finalbias: BIASVALUE ARG=wall_bias
+
+
+###############################
+########DEFINE_METAD###########
+###############################
+METAD ...
+	LABEL=meta ARG=pp.proj,ligrmsd
+	SIGMA=0.025,0.02 HEIGHT=1.5 
+	PACE=1000 FILE=HILLS 
+	BIASFACTOR=10.0 TEMP=300
+... METAD
+
+PRINT ARG=* STRIDE=1000 FILE=COLVAR FMT=%8.4f

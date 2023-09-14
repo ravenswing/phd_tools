@@ -13,10 +13,10 @@ def hills(filename):
     hills = [[], []]
     with open(filename) as f:
         lines = f.readlines()
-        data = [s for s in lines if not s.startswith(('@', '#'))]
-        data = [[float(val) for val in ln.split()] for ln in data]
-        hills[0] = ([ln[0] for ln in data])
-        hills[1] = ([ln[5] for ln in data])
+    data = [s for s in lines if not s.startswith(('@', '#'))]
+    data = [[float(val) for val in ln.split()] for ln in data]
+    hills[0] = ([ln[0] for ln in data])
+    hills[1] = ([ln[5] for ln in data])
     return hills
 
 
