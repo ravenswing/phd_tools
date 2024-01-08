@@ -1,7 +1,0 @@
-tip3p    TIP3P     TIP 3-point, recommended
-tip4p    TIP4P     TIP 4-point
-tip4pew  TIP4P-Ew  TIP 4-point optimized with Ewald
-tip4pd   TIP4P-D   TIP 4-point, Piana2015 (10.1021/acs.jctc.6b00429)
-tip5p    TIP5P     TIP 5-point (see http://redmine.gromacs.org/issues/1348 for issues)
-spc      SPC       simple point charge
-spce     SPC/E     extended simple point charge
