@@ -1,6 +1,6 @@
 
 select s1_N1, a2b1 and (resi 301 or resi 302 or resi 13 or resi 12 or resi 25) and name ca
-select s1_N2, a2b2 and (resi 301 or resi 302 or resi 13 or resi 12 or resi 25) and name ca
+select s1_N2, a2b2 and (resi 302 or resi 303 or resi 13 or resi 12 or resi 25) and name ca
 
 com s1_N1, object=p1_N1
 com s1_N2, object=p1_N2
