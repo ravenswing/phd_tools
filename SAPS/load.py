@@ -112,6 +112,15 @@ def p(filename):
         return pickle.load(f)
 
 
+def pdb(filename):
+    # Load complex pdb to edit
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+    print(f'Loaded {filename}')
+    lines = [line.split() for line in lines]
+    return lines
+
+
 '''
 def cd(filename):
     """ load CD data """
