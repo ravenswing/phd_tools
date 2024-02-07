@@ -1,5 +1,7 @@
 "----------    VIMRC    ----------
 
+set t_Co=256
+
 " rebind the map leader to ,
 let mapleader=","
 
@@ -25,6 +27,11 @@ Plug 'scrooloose/nerdtree'
 
 " Syntastic for syntax checking on load and save
 Plug 'vim-syntastic/syntastic'
+
+set statusline+=%#warningmsg#
+set statusline+=%{SyntasticStatuslineFlag()}
+set statusline+=%*
+
 let g:syntastic_always_populate_loc_list = 1
 let g:syntastic_check_on_open = 1
 let g:syntastic_check_on_wq = 0
@@ -33,6 +40,7 @@ let g:syntastic_quiet_messages = { "regex": [
         \ ' conform to UPPER_CASE naming style',
         \ ' conform to snake_case naming style',
         \ ] }
+let g:syntastic_python_checkers=['flake8']
 
 
 " PEP8 Python format checking
@@ -42,8 +50,14 @@ call plug#end()
 
 " enable colour scheme
 if has("termguicolors")
-    set termguicolors
+    "set termguicolors
 endif
+
+augroup nord-theme-overrides
+  autocmd!
+  " Use 'nord7' as foreground color for Vim comment titles.
+  autocmd ColorScheme nord highlight Comment ctermfg=14 guifg=#8FBCBB
+augroup END
 
 colorscheme nord
 
@@ -52,6 +66,7 @@ set softtabstop=4
 set shiftwidth=4        " number of spaces to use for autoindenting
 set shiftround          " use multiple of shiftwidth when indenting with '<' and '>'
 set expandtab
+set mouse=a
 
 set colorcolumn=80      " add line to show 80 character 'limit'
 set autoindent          " always set autoindenting on
@@ -74,10 +89,10 @@ set smartcase           " case-sensitive otherwise
 set history=1000        " remember more commands and search history
 set undolevels=1000     " use many muchos levels of undo
 set title               " change the terminal's title
-set visualbell          " don't beep
 set noerrorbells        " don't beep
 
 set undofile            " adds an undo file for unlimited undos
+set undodir=$HOME/.vim/vimundo
 set gdefault            " set find/replace to global PER LINE as default
 
 syntax enable 
@@ -142,3 +157,4 @@ silent autocmd BufNewFile,BufRead *.py
 " Always show statusline
 "set laststatus=2
 
+set background=dark
