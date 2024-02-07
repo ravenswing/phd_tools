@@ -1,12 +1,13 @@
 # PhD Tools
-A number of tools and scripts made for PhD work. 
+A number of tools and scripts initially made for my PhD work. 
 
-## **SAPS** - **S**imulation **A**nalysis and **P**reparation **S**cripts
+## **SAPS** - **S**imulation **A**nalysis and **P**reparation **S**uite
 
-* traj_tools:   Amber post-processing
-* system_prep: Amber & GMX system set-up from ligand params to minimised system
+* traj_tools
+* G.O.A.T.
+* A.T.A.T.
 
-## Python Scripts
+## Old Python Scripts
 * metaMon:  Monitor and analyse remote metadynamics simulations. 
 * histidineSeq: Make Hydrophilic Block .pdb structure files from sequence. 
 * arrangePdbs: Construct a "brush" of peptides from an input pdb.
