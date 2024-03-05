@@ -75,7 +75,7 @@ for method in ['fun-metaD']:
         out_dir = f"/media/rhys/Storage/ampk_metad_all_data/analysis_data/mdpocket/{system}"
         ref = f"/home/rhys/Storage/ampk_metad_all_data/super_ref/{system}.pdb"
         for pdb in systems[system]:
-            for rep in ['R1']:
+            for rep in ['R4']:
                 wd = f"{DATA_DIR}/{method}/{system}+{pdb}/{rep}"
                 """
                 aligned_pdb(wd, ref)

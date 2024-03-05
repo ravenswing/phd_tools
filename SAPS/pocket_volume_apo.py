@@ -6,12 +6,12 @@ import traj_tools as tt
 systems = {'a2b1': ['A769', 'PF739', 'SC4', 'MT47', 'MK87'],
            'a2b2': ['A769', 'PF739', 'SC4', 'MT47', 'MK87']}
 
-DATA_DIR = '/home/rhys/Storage/ampk_metad_all_data'
-TMPL_DIR = f"{DATA_DIR}/pockets/cut_templates"
+DATA_DIR = '/home/rhys/Storage/ampk_metad_all_data/apos'
+#TMPL_DIR = f"{DATA_DIR}/pockets/cut_templates"
 
 
-def aligned_pdb(wd, ref_path):
-    u = tt._init_universe(f"{wd}/md_dry.pdb")
+def aligned_pdb(wd, pdb_name, ref_path):
+    u = tt._init_universe(f"{wd}/{pdb_name}")
     protein = u.select_atoms("protein or resname S2P")
     with mda.Writer(f'{wd}/tmp_prot.pdb', protein.n_atoms) as W:
         for ts in u.trajectory:
@@ -23,12 +23,12 @@ def aligned_pdb(wd, ref_path):
                               filename=f'{wd}/aligned.pdb').run()
 
 
-def aligned_dcd(wd, xtc_name, ref_path):
+def aligned_dcd(wd, xtc_name, top, ref_path):
     # ADD NFRAMES ARGUMENT AN LINSPACE FOR FRAME ITERATION!
-    u = tt._init_universe([f"{wd}/md_dry.pdb", f"{wd}/{xtc_name}"])
+    u = tt._init_universe([f"{wd}/{top}", f"{wd}/{xtc_name}"])
     protein = u.select_atoms("protein or resname S2P")
     with mda.Writer(f'{wd}/tmp_prot.xtc', protein.n_atoms) as W:
-        for ts in u.trajectory[::5]:
+        for ts in u.trajectory[::200]:
             W.write(protein)
 
     mobile = tt._init_universe([f'{wd}/aligned.pdb', f'{wd}/tmp_prot.xtc'])
@@ -70,38 +70,26 @@ def pocket_volume(wd, out_name, ref_path):
               '. Output:', error.output.decode("utf-8"))
 
 
-for method in ['fun-metaD']:
-    for system in systems.keys():
-        out_dir = f"/media/rhys/Storage/ampk_metad_all_data/analysis_data/mdpocket/{system}"
-        ref = f"/home/rhys/Storage/ampk_metad_all_data/super_ref/{system}.pdb"
-        for pdb in systems[system]:
-            for rep in ['R1']:
-                wd = f"{DATA_DIR}/{method}/{system}+{pdb}/{rep}"
-                """
-                aligned_pdb(wd, ref)
-                aligned_dcd(wd, f"{system}+{pdb}_{rep}_GISMO.xtc", ref)
+for system in systems.keys():
 
-                try:
-                    subprocess.run('rm tmp_*', cwd=wd, shell=True, check=True)
-                except subprocess.CalledProcessError as error:
-                    print('Error code:', error.returncode,
-                          '. Output:', error.output.decode("utf-8"))
+    out_dir = DATA_DIR
+    ref = f"/home/rhys/Storage/ampk_metad_all_data/super_ref/{system}.pdb"
 
-                pocket_select(wd, f"{system}+{pdb}_{rep}")
+    for rep in ['R1', 'R2', 'R3']:
+        wd = f"{DATA_DIR}/{system}/{rep}"
 
-                try:
-                    subprocess.run(f'cp *_freq_iso_* {out_dir}', cwd=wd,
-                                   shell=True, check=True)
-                except subprocess.CalledProcessError as error:
-                    print('Error code:', error.returncode,
-                          '. Output:', error.output.decode("utf-8"))
-                try:
-                    subprocess.run(f'cp *_atom_pdens* {out_dir}', cwd=wd,
-                                   shell=True, check=True)
-                except subprocess.CalledProcessError as error:
-                    print('Error code:', error.returncode,
-                          '. Output:', error.output.decode("utf-8"))
-                """
+        """
+        aligned_pdb(wd, f"{system}.pdb", ref)
+        aligned_dcd(wd, f"{system}_apo_{rep}.nc", f"{system}.pdb", ref)
 
-                pocket_volume(wd, f"{system}+{pdb}_{rep}_vol",
-                              f"{TMPL_DIR}/{system}+{pdb}_cut.pdb")
+        try:
+            subprocess.run('rm tmp_*', cwd=wd, shell=True, check=True)
+        except subprocess.CalledProcessError as error:
+            print('Error code:', error.returncode,
+                  '. Output:', error.output.decode("utf-8"))
+
+        pocket_select(wd, f"{system}_apo_{rep}")
+
+        """
+        pocket_volume(wd, f"{system}_{rep}_vol",
+                        f"{DATA_DIR}/{system}_ADaM.pdb")
