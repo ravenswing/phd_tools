@@ -1,0 +1,40 @@
+[ moleculetype ]
+; molname       nrexcl                                                        ; taken from TIP4P
+SOL             2
+
+[ atoms ]
+; id  at type     res nr  res name  at name  cg nr  charge    mass            ; taken from TIP4P-D paper
+  1   OW_tip4pd   1       SOL       OW       1       0        16.00000
+  2   HW_tip4pd   1       SOL       HW1      1       0.58      1.00800
+  3   HW_tip4pd   1       SOL       HW2      1       0.58      1.00800
+  4   MW          1       SOL       MW       1      -1.16      0.00000
+
+#ifndef FLEXIBLE
+
+[ settles ]
+; i     funct   doh     dhh                                                   ; taken from TIP4P (same for TIP4P2005)
+1       1       0.09572 0.15139
+
+#else
+
+[ bonds ]
+; i     j       funct   length  force.c.                                      ; taken from TIP4P
+1       2       1       0.09572 502416.0 0.09572        502416.0 
+1       3       1       0.09572 502416.0 0.09572        502416.0 
+        
+[ angles ]
+; i     j       k       funct   angle   force.c.                              ; taken from TIP4P
+2       1       3       1       104.52  628.02  104.52  628.02  
+
+#endif
+
+
+[ virtual_sites3 ]
+; Vsite from                    funct   a               b                     ; taken from TIP4P2005
+4       1       2       3       1       0.131937768     0.131937768
+
+[ exclusions ]
+1       2       3       4
+2       1       3       4
+3       1       2       4
+4       1       2       3
