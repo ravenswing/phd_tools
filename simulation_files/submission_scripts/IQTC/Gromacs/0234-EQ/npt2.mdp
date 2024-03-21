@@ -1,8 +1,9 @@
-;---------------------------------------------
-;---------------------------------------------
-;            STEP-WISE SIMULATIONS
-;---------------------------------------------
-;---------------------------------------------
+;
+;       File 'npt_EQ_CE.mdp' was generated
+;       By user: carol
+;       On host: tramuntana
+;       At date: Wed Jun 27 16:40:38 BST 2018
+;
 
 
 ;---------------------------------------------
@@ -16,6 +17,7 @@ dt                       = 0.002                    ; in ps
 nsteps                   = 5000000                  ; 10.00   ns
 init-step                = 0
 ;----------------------------------
+;define                   = -DPOSRES   ; position restrain the protein and the ligand
 compressed-x-grps        = Protein_LIG
 ;----------------------------------
 ; COM (center of mass) parameters
@@ -30,9 +32,9 @@ comm-grps                = System
 ; NEIGHBORSEARCHING 
 ;----------------------------------------------
 ;----------------------------------------------
-cutoff-scheme            = verlet
-nstlist                  = 10                       ;-1 for WTE
-nstcalcenergy            = 10                       ; 1 for WTE
+cutoff-scheme            = verlet                   ; group/verlet (check Elec/VdW)
+nstlist                  = 10                       ;-1 for WTE!
+nstcalcenergy            = 10                       ; 1 for WTE!
 pbc                      = xyz                      ; 3-D PBC
 periodic-molecules       = no
 rlist                    = 1.2
@@ -84,13 +86,16 @@ epsilon-surface          = 0
 tcoupl                   = v-rescale                ; modified Berendsen thermostat
 nsttcouple               = -1
 nh-chain-length          = 10
+;tc-grps                 = system
 tc-grps                  = Protein_LIG  Water_and_ions ; two coupling groups - more accurate
+;tau-t                   = 0.1
 tau_t                    = 0.1     0.1              ; time constant, in ps
+;ref-t                   = 300
 ref_t                    = 300     300              ; reference temperature, one for each group, in K
 ;----------------------------------
 ; Pressure coupling
 ;----------------------------------
-pcoupl                   = no                       ; Pressure coupling OFF --> NVT
+pcoupl                   = Parrinello-Rahman        ; Pressure coupling on in NPT
 pcoupltype               = isotropic                ; uniform scaling of box vectors
 nstpcouple               = -1
 tau-p                    = 0.5
@@ -105,7 +110,7 @@ refcoord_scaling         = com
 ;----------------------------------------------
 ;----------------------------------------------
 gen-vel                  = no
-;gen-temp                = 300                      ; only if gen-vel is on
+;gen-temp                 = 300                      ; only if gen-vel is on
 
 
 ;----------------------------------------------
@@ -115,12 +120,12 @@ gen-vel                  = no
 ;----------------------------------------------
 constraints              = all-bonds                ; all bonds (even heavy atom-H bonds) constrained
 constraint-algorithm     = Lincs                    ; holonomic constraints
-continuation             = yes                      ; Restarting after NPT-2 Equil
+;continuation            = yes                      ; Restarting after NPT-1
 ;----------------------------------
 ; Number of iterations in the final step of LINCS. (1 = normal, 2 = NVE, 4-8 = minimization)
 ;----------------------------------
 lincs-order              = 4                        ; also related to accuracy
-lincs-iter               = 2                        ; accuracy of LINCS
+lincs-iter               = 1                        ; accuracy of LINCS
 lincs-warnangle          = 30
 
 
@@ -131,16 +136,18 @@ lincs-warnangle          = 30
 ;----------------------------------------------
 ; Output frequency for coords (x), vel (v) and forces (f)
 ;----------------------------------
-nstxout                  = 250000                  ; save coordinates every 0.5 ns
-nstvout                  = 250000                  ; save velocities every 0.5 ns
+nstxout                  = 5000                     ; save coordinates every 10.0 ps
+nstvout                  = 5000                     ; save velocities every 10.0 ps
 nstfout                  = 0
 ;----------------------------------
 ; Output frequency for energies to log file and energy file
 ;----------------------------------
-nstlog                   = 1000                     ; update log file every 20.0 ps
-nstenergy                = 0                        ; save energies every step
+nstlog                   = 5000                     ; update log file every 10.0 ps
+nstenergy                = 1000                     ; save energies every 2.0 ps
 ;----------------------------------
 ; Output frequency and precision for .xtc file
 ;----------------------------------
-nstxout-compressed       = 1000                     ; save xtc every 2.0 ps
-compressed-x-precision   = 1000
+nstxout-compressed     = 5000                     ; save xtc every 10.0 ps
+;xtc-precision           = 1000
+
+

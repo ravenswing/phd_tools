@@ -1,6 +1,6 @@
 #!/bin/csh 
 #$ -S /bin/bash
-#$ -N MD-a2b2
+#$ -N Back-Funnel-a2b1-SC4
 #$ -pe smp 1
 #$ -q iqtc10_g1819_gpu.q
 #$ -cwd 
@@ -9,10 +9,10 @@
 
 # --------------------------------- INPUTS ------------------------------------
 
-steps=10		# Maximum number of steps to run. 
-traj=MD			# Name of all output files. 
+steps=50		# Maximum number of steps to run. 
+traj=metad		# Name of all output files. 
 ndx=i.ndx		# Name of index file.
-prev=NPT2		# Name of previous .gro and .cpt files.
+prev=md			# Name of previous .gro and .cpt files.
 
 # --------------------------------- SETUP  ------------------------------------
 
@@ -33,6 +33,8 @@ log_line() {
 
 # Get file names from the directory tree.
 FN=$(cd ..; basename -- "$PWD")
+method=$(cd ../..; basename -- "$PWD")
+plumed=${FN}_${method}.dat
 
 # Define the number steps and the max simulation time (ps).
 tmax=$(($steps*10000))
@@ -55,26 +57,25 @@ cd $SGE_O_WORKDIR
 i=1
 
 # Run grompp to initialise the simulation
-$GMX grompp -f md.mdp -c $prev.gro -p $FN.top -o ${traj}${i}.tpr -t $prev.cpt -r $prev.gro -n $ndx
+$GMX grompp -f step10.mdp -c $prev.gro -p $FN.top -o ${traj}${i}.tpr -t $prev.cpt -r $prev.gro -n $ndx
 
 # Copy inputs and files needed to the directory where the jobs will run.
 rsync -au ${traj}${i}.tpr $TMPDIR/
+rsync -au $plumed $TMPDIR/
+rsync -au *.pdb $TMPDIR/
 
-# printf "%s Step %s %s RUNNING\n" "$(timestamp)" $i "${line:${#i}}" >> run.log
 echo $(log_line "RUNNING" "Step $i ") >> run.log
 rsync -a run.log $TMPDIR/
 
 # Run Step 1 on the compute node.
 cd $TMPDIR 
-$GMX mdrun -s ${traj}${i}.tpr -deffnm ${traj} 
-# printf "%s Step %s %s COMPLETED\n" "$(timestamp)" $i "${line:${#i}}" >> run.log
+$GMX mdrun -s ${traj}${i}.tpr -deffnm ${traj} -plumed $plumed
 echo $(log_line "COMPLETED" "Step $i ") >> run.log
 rsync -au * $SGE_O_WORKDIR/.
 cd $SGE_O_WORKDIR
 
 # Backup the checkpoint file and update the log file.
 cp $traj.cpt ${traj}_step${i}.cpt
-# printf "%s Step %s %s SYNCED\n" "$(timestamp)" $i "${line:${#i}}" >> run.log
 echo $(log_line "SYNCED" "Step $i ") >> run.log
 
 # ----------------------------- RUN NEXT STEPS --------------------------------
@@ -85,15 +86,17 @@ do
     $GMX convert-tpr -s ${traj}$((i-1)).tpr -o ${traj}${i}.tpr -extend 10000
 
     # Copy inputs and files needed to the directory where the jobs will run.
-    rsync -au ${traj}${i}.tpr $TMPDIR/
-    rsync -au ${traj}_step$((i-1)).cpt $TMPDIR/
+    rsync -a ${traj}${i}.tpr $TMPDIR/
+    rsync -a ${traj}_step$((i-1)).cpt $TMPDIR/
+    # rsync -a COLVAR $TMPDIR/
+    # rsync -a HILLS $TMPDIR/
  
     echo $(log_line "RUNNING" "Step $i ") >> run.log
     rsync -a run.log $TMPDIR/
     
     # Run the next step.
     cd $TMPDIR 
-    $GMX mdrun -s ${traj}${i}.tpr -deffnm ${traj} -cpi ${traj}_step$((i-1)).cpt -noappend 
+    $GMX mdrun -s ${traj}${i}.tpr -deffnm ${traj} -cpi ${traj}_step$((i-1)).cpt -noappend -plumed $plumed
     echo $(log_line "COMPLETED" "Step $i ") >> run.log
     rsync -au * $SGE_O_WORKDIR/.
     cd $SGE_O_WORKDIR
