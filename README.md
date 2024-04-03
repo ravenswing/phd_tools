@@ -1,11 +1,8 @@
 # PhD Tools
-A number of tools and scripts initially made for my PhD work. 
+A number of tools and scripts that were initially made for my PhD work. 
 
 ## **SAPS** - **S**imulation **A**nalysis and **P**reparation **S**uite
-
-* traj_tools
-* G.O.A.T.
-* A.T.A.T.
+**NOW MOVED TO IT'S OWN REPO:** [MD-SAPS](https://github.com/ravenswing/mdsaps)
 
 ## Old Python Scripts
 * metaMon:  Monitor and analyse remote metadynamics simulations. 
