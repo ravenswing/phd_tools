@@ -16,18 +16,14 @@ import pytraj as pt
 import subprocess
 from glob import glob
 
-SCRIPT_DIR = ("/home/rhys/phd_tools/simulation_files/"
-              "submission_scripts/Amber/md")
-
 
 def _run_tleap(wd, input_file):
     # Print a starting message
     print(f"STARTING  | TLEAP with input:  {input_file}")
     # Run TLEAP
     try:
-        o = subprocess.run(f"tleap -f {wd}/{input_file}",
-                           shell=True, check=True,
-                           capture_output=True, text=True)
+        o = subprocess.run(["tleap", "-f", f"{wd}/{input_file}"],
+                           check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as error:
         print('Error code:', error.returncode,
               '. Output:', error.output.decode("utf-8"))
@@ -71,9 +67,10 @@ def setup_minimisation(wd, pdb_filename, nm_pos_in_path, restraints=False):
     if restraints:
         SCRIPT_DIR += "_restraints"
     # Copy the templates to the working directory
+    # TODO -> Copy files
     try:
-        subprocess.run(' '.join(['cp', f"{SCRIPT_DIR}/min*", wd+'/']),
-                       shell=True, check=True)
+        subprocess.run(['cp', f"{SCRIPT_DIR}/min*", wd+'/'],
+                       check=True)
     except subprocess.CalledProcessError as error:
         print('Error code:', error.returncode,
               '. Output:', error.output.decode("utf-8"))
@@ -140,7 +137,7 @@ def make_restraints_list(wd, txt_in):
 def run_minimisation(wd):
     # Exectute the bash script for minimisation
     try:
-        subprocess.run(' '.join(['bash', f"{wd}/minim.sh"]), check=True)
+        subprocess.run(['bash', f"{wd}/minim.sh"], check=True)
     except subprocess.CalledProcessError as error:
         print('Error code:', error.returncode,
               '. Output:', error.output.decode("utf-8"))
@@ -178,10 +175,10 @@ def transfer(wd):
     path = '/'.join(wd.split('/')[-2:])
     print(path)
     try:
-        subprocess.run(' '.join(['rsync -avzhPu',
-                                 f"{wd}/restraints_k*",
-                                 f"{SVR_DIR}/{path}/"]),
-                       shell=True, check=True)
+        subprocess.run(['rsync' '-avzhPu',
+                        f"{wd}/restraints_k*",
+                        f"{SVR_DIR}/{path}/"],
+                       check=True)
     except subprocess.CalledProcessError as error:
         print('Error code:', error.returncode,
               '. Output:', error.output.decode("utf-8"))
@@ -205,12 +202,14 @@ def autoimage_file(top_file, crd_file):
                   overwrite=True)
 
 
-if __name__ == "main":
-
+def main():
     # lig21
     POCKETS = ['Tunnel-Front', 'Tunnel-Back', 'Active-Site']
     DATA_DIR = ('/home/rhys/Dropbox/RESEARCH/AA_RHYS/BB_BECK/'
                 'SHIP_uMD_Prep/Lig21_uMD')
+
+    SCRIPT_DIR = ("/home/rhys/phd_tools/simulation_files/"
+                  "submission_scripts/Amber/md")
 
     # MINIMISATION
     for pocket in POCKETS:
@@ -218,16 +217,19 @@ if __name__ == "main":
         make_restraints_list(wd,
                              f"complex_ship2_{pocket}+Lig21",
                              f"{DATA_DIR}/SHIP Project - Lig21 Restraints.csv")
-        prepare_min_inputs(wd, restraints=True)
+        # prepare_min_inputs(wd, restraints=True)
 
     # PRODUCTION
     POCKETS = ['Experimental', 'Tunnel-Front', 'Tunnel-Back']
     DATA_DIR = '/media/rhys/data1/ship_rhys_2022/holo_uMD/minimisation'
-    SVR_DIR = 'iqtc:/home/g19torces/rhys_running/ship_holo_uMD'
 
     for pocket in POCKETS:
         for path in glob(f"{DATA_DIR}/{pocket.lower()}/*"):
-            FN = f"complex_{path.split('/')[-1]}"
-            make_reducing_restraints(path, '/home/rhys/SHIP/Data/SHIP Project - Restraints.csv')
+            make_reducing_restraints(path,
+                                     '/home/rhys/SHIP/Data/SHIP Project - Restraints.csv')
             transfer(path)
-    #         prepare_min_inputs(path, restraints=True)
+            #  prepare_min_inputs(path, restraints=True)
+
+
+if __name__ == "main":
+    main()

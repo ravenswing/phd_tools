@@ -6,70 +6,78 @@
     - sumhills
 """
 
-import numpy as np
+import logging
 import pandas as pd
-import pickle
 import subprocess
-import sys
 
-import traj_tools as tt
-import load
+from . import load
+
+log = logging.getLogger(__name__)
+log.info("G.O.A.T. (Gromacs Organisation n' Analysis Tools) Loaded")
 
 
-def run_sumhills(wd, out_name, stride=None, cv=None):
+def run_sumhills(wd, out_name, name='HILLS', stride=None, cv=None):
     """ Outputs:
         - FES
         - FES over time (with stride)
         - 1D FES (with cv)
     """
+    hills_file = f"{wd}/{name}"
+    log.info(f'Running Sum_hills for {hills_file}')
+
     # Create FESs over time is stride is provided
     if stride is not None:
+        # TODO -> Make dirs
         # Make a new directory to hold output
         subprocess.run(f"mkdir -p {wd}/fes", shell=True, check=True)
         # Adjust output name for new directory
         out_name = f'fes/{out_name}'
         # Add flag for plumed command
-        st_flag = f" --stride {stride}"
+        st_flags = ["--stride", f"{stride}"]
     else:
-        st_flag = ''
-    # Create 1D FES if cv is specified
-    if cv is not None:
-        # Add flag for plumed command (assuming 300K!)
-        cv_flag = f"--idw {cv} --kt 2.49"
-    else:
-        cv_flag = ''
+        st_flags = []
+
+    # Create 1D FES if cv is specified, add flag for plumed command (300K!)
+    cv_flags = ["--idw", f"{cv}", "--kt", "2.49"] if cv is not None else []
+
     # Construct plumed command
-    cmd = (f"plumed sum_hills --hills {wd}/HILLS "
-           f"--outfile {wd}/{out_name}_FES --mintozero {st_flag} {cv_flag}")
+    cmd = ['plumed', 'sum_hills',
+           "--hills", hills_file,
+           "--outfile", f"{wd}/{out_name}_FES",
+           "--mintozero"] + st_flags + cv_flags
+    log.debug(f"{' '.join(cmd)}")
+
     # Execute the plumed sum_hills command
     try:
-        subprocess.run(cmd,
-                       shell=True,
-                       check=True)
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL)
     except subprocess.CalledProcessError as error:
         print('Error code:', error.returncode,
               '. Output:', error.output.decode("utf-8"))
 
 
-def cut_traj(trj_path, tpr, out_path, dt=100, ndx='i.ndx'):
+def cut_traj(trj_path: str, tpr: str, out_path: str,
+             dt=100, ndx: str = 'i.ndx', apo: bool = False) -> None:
     """ cutdown the trajectories using Gromacs trjconv ready for GISMO """
     # Assume working directory is same as traj if not specified
     tpr = tpr if '/' in tpr else '/'.join(trj_path.split('/')[:-1]) + '/' + tpr
     out_path = out_path if '/' in out_path else '/'.join(trj_path.split('/')[:-1]) + '/' + out_path
     ndx = ndx if '/' in ndx else '/'.join(trj_path.split('/')[:-1]) + '/' + ndx
+    log.info(f"Cutting Trajectory {trj_path.split('/')[-1]}")
+    out_group = "Protein" if apo else "Protein_LIG"
     # Create the trjconv command from user input
-    cmd = ("echo Backbone Protein_LIG | gmx_mpi trjconv "
-           f"-s {tpr} "
-           f"-f {trj_path} "
-           f"-o {out_path} "
-           f"-n {ndx} "
-           "-fit rot+trans "
-           f"-dt {dt} ")
+    cmd = ["echo", "Backbone", out_group, "|",
+           "gmx_mpi", "trjconv ",
+           "-s", tpr,
+           "-f", trj_path,
+           "-o", out_path,
+           "-n", ndx,
+           "-dt", str(dt),
+           "-fit", "rot+trans"]
+    log.debug(f"{' '.join(cmd)}")
     # Run the trjconv command
     try:
-        subprocess.run(cmd,
-                       shell=True,
-                       check=True)
+        subprocess.run(' '.join(cmd), shell=True,
+                       check=True, stdout=subprocess.DEVNULL)
     except subprocess.CalledProcessError as error:
         print('Error code:', error.returncode,
               '. Output:', error.output.decode("utf-8"))
@@ -225,44 +233,51 @@ def reconstruct_traj(trj_path, tpr, out_path=None, ndx='i.ndx',
     elif '/' not in out_path:
         out_path = '/'.join(trj_path.split('/')[:-1]) + '/' + out_path
     # Step 1: -pbc whole, produces tmp1.xtc
+    cmd = ["echo", f"{out_group}", "|",
+                        "gmx_mpi", "trjconv",
+                        "-f", trj_path,
+                        "-s", tpr,
+                        "-n", ndx,
+                        "-o", "/tmp/tmp1.xtc",
+                        "-pbc", "whole"]
+    log.debug(f"{' '.join(cmd)}")
     try:
-        subprocess.run((f"echo {out_group} | gmx_mpi trjconv "
-                        f"-f {trj_path} "
-                        f"-s {tpr} "
-                        f"-n {ndx} "
-                        "-o /tmp/tmp1.xtc "
-                        '-pbc whole '),
-                       check=True,
-                       shell=True)
+        subprocess.run(' '.join(cmd),
+                       shell=True, check=True, stdout=subprocess.DEVNULL)
     except subprocess.CalledProcessError as error:
         print('Error code:', error.returncode,
               '. Output:', error.output.decode("utf-8"))
     # Step 2: -pbc cluster, produces tmp2.xtc
+    cmd = ["echo", "Protein", f"{out_group}", "|",
+                        "gmx_mpi", "trjconv",
+                        "-f", "/tmp/tmp1.xtc",
+                        "-s", tpr,
+                        "-n", ndx,
+                        "-o", "/tmp/tmp2.xtc",
+                        "-pbc", "cluster"]
+    log.debug(f"{' '.join(cmd)}")
     try:
-        subprocess.run((f"echo Protein {out_group} | gmx_mpi trjconv "
-                        "-f /tmp/tmp1.xtc "
-                        f"-s {tpr} "
-                        f"-n {ndx} "
-                        "-o /tmp/tmp2.xtc "
-                        '-pbc cluster '),
-                       check=True,
-                       shell=True)
+        subprocess.run(' '.join(cmd),
+                       shell=True, check=True, stdout=subprocess.DEVNULL)
     except subprocess.CalledProcessError as error:
         print('Error code:', error.returncode,
               '. Output:', error.output.decode("utf-8"))
     # run trjconv to produce a readable output
+    cmd = ["echo", "Protein", f"{out_group}", "|",
+                        "gmx_mpi", "trjconv",
+                        "-f", "/tmp/tmp2.xtc",
+                        "-s", tpr,
+                        "-n", ndx,
+                        "-o", out_path,
+                        "-pbc", "mol", "-ur", "compact", "-center"]
+    log.debug(f"{' '.join(cmd)}")
     try:
-        subprocess.run((f"echo Protein {out_group} | gmx_mpi trjconv "
-                        f"-f /tmp/tmp2.xtc "
-                        f"-s {tpr} "
-                        f"-n {ndx} "
-                        f"-o {out_path} "
-                        '-pbc mol -ur compact -center'),
-                       check=True,
-                       shell=True)
+        subprocess.run(' '.join(cmd),
+                       shell=True, check=True, stdout=subprocess.DEVNULL)
     except subprocess.CalledProcessError as error:
         print('Error code:', error.returncode,
               '. Output:', error.output.decode("utf-8"))
+    # TODO -> REMOVE FILE
     # Remove temp xtc files if necessary
     subprocess.run("rm /tmp/*.xtc", shell=True)
 
@@ -272,23 +287,29 @@ def concat_traj(directory, out_path='full_traj.xtc'):
     # Assume input file extension based on output path
     ext = out_path.split('.')[-1]
 
-    # todo: check that the files exist
-    # todo: check that all the names of the inputs are the same:
+    log.info(f"Concatenating Trajectories in {directory}/")
+
+    # TODO: check that the files exist
+    # TODO: check that all the names of the inputs are the same:
     #       i.e. there are not name.part000*.xtc AND name.xtc
+    cmd = ["gmx_mpi", "trjcat",
+           "-f", f"{directory}/*.{ext}",
+           "-o", f"{directory}/{out_path}"]
+    log.debug(f"{' '.join(cmd)}")
     try:
-        subprocess.run(("gmx_mpi trjcat "
-                        f"-f {directory}/*.{ext} "
-                        f"-o {directory}/{out_path} "),
-                       check=True,
-                       shell=True)
+        subprocess.run(' '.join(cmd), check=True,
+                       shell=True, stdout=subprocess.DEVNULL)
     except subprocess.CalledProcessError as error:
         print('Error code:', error.returncode,
               '. Output:', error.output.decode("utf-8"))
 
 
-def snapshot_pdbs(trj_path, tpr, snapshots, ns=True, ref_str=None):
+def snapshot_pdbs(trj_path, tpr, snapshots, ns=True, ref_str=None) -> None:
+    
     tpr = tpr if '/' in tpr else '/'.join(trj_path.split('/')[:-1]) + '/' + tpr
     out_path = '/'.join(trj_path.split('/')[:-1]) + '/snapshots'
+    
+    # TODO -> Make Dirs
     # Make the directory for the output
     try:
         subprocess.run(f"mkdir -p {out_path}",
@@ -296,17 +317,17 @@ def snapshot_pdbs(trj_path, tpr, snapshots, ns=True, ref_str=None):
     except subprocess.CalledProcessError as error:
         print('Error code:', error.returncode,
               '. Output:', error.output.decode("utf-8"))
+    
     # Define the output name
     stem = trj_path.split('/')[-1].split('.')[0]
+
     for ts in snapshots:
-        ts = ts*1000 if ns else ts
+        ts = ts*1000 if ns else ts 
+        cmd = (f"echo 0 |gmx_mpi trjconv -f {trj_path} -s {tpr} "
+               f"-o {out_path}/{stem}_{ts}.pdb -dump  {ts}")
         try:
-            subprocess.run(('echo 0 | gmx_mpi trjconv '
-                            f"-f {trj_path} "
-                            f"-s {tpr} "
-                            f"-o {out_path}/{stem}_{ts}.pdb "
-                            f"-dump {ts}"),
-                           shell=True, check=True)
+            subprocess.run(cmd,
+                           shell=True, check=True, stdout=subprocess.DEVNULL) 
         except subprocess.CalledProcessError as error:
             print('Error code:', error.returncode,
                   '. Output:', error.output.decode("utf-8"))

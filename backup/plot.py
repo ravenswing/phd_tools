@@ -12,9 +12,6 @@ import numpy as np
 import pandas as pd
 import sys
 import plotly.graph_objects as go
-from glob import glob
-from math import ceil
-from plotly.subplots import make_subplots
 
 sys.path.append('/home/rhys/phd_tools/SAPS')
 import load
@@ -226,7 +223,7 @@ def cvs(colvar_path, save_path, cvs, units='A', title='CV Diffusion',
     colvar = load.colvar(f"{colvar_path}")
     N = len(list(cvs.keys()))
     fig, ax = plt.subplots(1, N, figsize=(8*N+2, 6), layout='constrained')
-    for i, cv in enumerate(list(cvs.keys())):
+    for i, cv in enumerate(cvs):
         ax[i].scatter(colvar.time.multiply(0.001),
                       colvar[cv].multiply(10),
                       c='#089682', s=8, alpha=.4)
@@ -239,7 +236,7 @@ def cvs(colvar_path, save_path, cvs, units='A', title='CV Diffusion',
 
 
 def diffusion(DIVS, path_frmt, save_frmt, shape, cvs):
-    for cv in list(cvs.keys()):
+    for cv in cvs:
         fig, ax = plt.subplots(shape[0], shape[1],
                                figsize=(shape[1]*8, shape[0]*5),
                                sharey=True, sharex=True)
@@ -364,4 +361,3 @@ def dgdt(y, exp_value, ax):
     ax.set_xlim([-5., max(x)+10])
     ax.set_ylim([-25., 5.0])
     ax.grid(alpha=0.3)
-

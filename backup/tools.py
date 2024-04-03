@@ -9,14 +9,13 @@
     N.B. Requires ambertools (PyTraj & Parmed) for file conv.
 """
 
+import logging
 import MDAnalysis as mda
 import numpy as np
 import pandas as pd
 import pickle
 import pytraj as pt
 import subprocess
-import multiprocessing
-
 from multiprocessing import Pool
 from functools import partial
 from numbers import Number
@@ -24,12 +23,12 @@ from MDAnalysis.analysis import rms
 from parmed import gromacs, amber, load_file
 from os.path import exists
 
+log = logging.getLogger(__name__)
+log.info("Traj Tools Loaded")
 
-def log(level, message):
-    print(f"{level.upper(): <6} | {message}")
 
-
-def _process_atm_nm(name):
+def _process_atm_nm(name: str) -> str:
+    log.debug(f'Atom Name: |{name}|')
     # Full length names are left unchanged
     if len(name) == 4:
         return name
@@ -38,7 +37,7 @@ def _process_atm_nm(name):
         return f" {name:<3}"
 
 
-def format_pdb(info, chain=False):
+def format_pdb(info: list, chain: bool = False) -> str:
     # Process atom name seperately
     atm_nm = _process_atm_nm(info[2])
 
@@ -75,12 +74,13 @@ def format_pdb(info, chain=False):
                 f"{temprt:>6.2f}          "
                 f"{elemnt:>2}"
                 f"{charge}\n")
+    log.debug(f'Format PBD: |{new_line}')
 
     # Return the new line
     return new_line
 
 
-def amber_to_gromacs(top_file, crd_file):
+def amber_to_gromacs(top_file: str, crd_file: str) -> None:
     ''' Convert a system from Amber --> Gromacs using ParmEd '''
     # Check that the topology has a readable extension
     assert top_file.split('.')[-1] in ['parm7', 'prmtop'], "ERROR"
@@ -95,7 +95,7 @@ def amber_to_gromacs(top_file, crd_file):
     amber.save(f"{crd_file.split('.')[0]}_a2g.gro", overwrite=True)
 
 
-def gromacs_to_amber(top_file, crd_file):
+def gromacs_to_amber(top_file: str, crd_file:str) -> None:
     ''' Convert a system from Gromacs --> Amber using ParmEd '''
     # Check that the topology has a readable extension
     assert top_file.split('.')[-1] == 'top', "ERROR"
@@ -121,7 +121,7 @@ def gromacs_to_amber(top_file, crd_file):
     amb_crd.close()
 
 
-def amber_to_pdb(top_file, crd_file, autoimage=False):
+def amber_to_pdb(top_file: str, crd_file: str, autoimage: bool = False) -> None:
     ''' Convert a system from Amber --> PDB using PyTraj '''
     # Check that the topology has a readable extension
     assert top_file.split('.')[-1] in ['parm7', 'prmtop'], "ERROR"
@@ -156,24 +156,6 @@ def _init_universe(in_str):
         raise ValueError("Structure not recognised")
 
 
-def measure_rmsd(top_path, trj_path, ref_str, rmsd_groups,
-                 aln_group='backbone'):
-    # Load the topology and trajectory
-    U = _init_universe([top_path, trj_path])
-    if ref_str:
-        # Load ref. structure if path is given
-        ref = _init_universe(ref_str)
-    else:
-        # If ref_str = 0 i.e. use starting frame, assign ref as input traj.
-        ref = U
-    R = rms.RMSD(U,  # universe to align
-                 ref,  # reference universe or atomgroup
-                 select=aln_group,  # group to superimpose and calculate RMSD
-                 groupselections=rmsd_groups,  # groups for RMSD
-                 ref_frame=0).run()  # frame index of the reference
-    return pd.DataFrame(columns=['t', 'rmsd'], data=R.results.rmsd[:, [1, -1]])
-
-
 def multiindex_hdf(new_data, ids, hdf_path, data_col, index_col):
 
     # Create dataframe from new data with desired index and 1 column
@@ -192,15 +174,14 @@ def multiindex_hdf(new_data, ids, hdf_path, data_col, index_col):
 
     # If there is already an hdf file...
     if exists(hdf_path):
-        log('info', 'HDF Exists --> Reading File & Adding Data')
         new = pd.read_hdf(hdf_path, key='df')
         # ...and the column exists, update the values.
         if any([(mi == df.columns)[0] for mi in new.columns]):
-            log('info', "Updating values in DataFrame.")
+            log.info('HDF Exists -> Updating values in DataFrame.')
             new.update(df)
         # ...and the data is new, add the new data.
         else:
-            log('info', "Adding new values to DataFrame.")
+            log.info('HDF Exists -> Adding new values to DataFrame.')
             new = new.join(df)
         # Reorder the columns before saving the data.
         new = new.iloc[:, new.columns.sortlevel(0, sort_remaining=True)[1]]
@@ -209,13 +190,31 @@ def multiindex_hdf(new_data, ids, hdf_path, data_col, index_col):
     # But if there is not a file already...
     else:
         # ... make a new hdf file and save the first column of data.
-        log('info', 'No HDF Found --> Creating File')
+        log.info('No HDF Found -> Creating File')
         df.to_hdf(hdf_path, key='df')
+
+
+def measure_rmsd(top_path, trj_path, ref_str, rmsd_groups,
+                 aln_group='backbone'):
+    # Load the topology and trajectory
+    U = _init_universe([top_path, trj_path])
+    if ref_str:
+        # Load ref. structure if path is given
+        ref = _init_universe(ref_str)
+    else:
+        # If ref_str = 0 i.e. use starting frame, assign ref as input traj.
+        ref = U
+    R = rms.RMSD(U,  # universe to align
+                 ref,  # reference universe or atomgroup
+                 select=aln_group,  # group to superimpose and calculate RMSD
+                 groupselections=rmsd_groups,  # groups for RMSD
+                 ref_frame=0).run()  # frame index of the reference
+    return pd.DataFrame(columns=['t', 'rmsd'], data=R.results.rmsd[:, [1, -1]])
 
 
 def save_rmsd(ids, top_path, trj_path, hdf_path, measure,
               ref_path=None, align='backbone'):
-    log('info', 'Running RMSD Calc. for ' + ' '.join(ids))
+    log.info(f"Running RMSD Calc. for {' '.join(ids)}")
     rmsd = measure_rmsd(top_path, trj_path, ref_path,
                         [measure], aln_group=align)
     multiindex_hdf(rmsd, ids, hdf_path, 'rmsd', 't')
@@ -242,19 +241,16 @@ def dump_rmsd(top_path, trj_path, ref_str, out_path=None,
 
 def measure_rmsf(top_path, trj_path, measure='backbone',
                  select='protein', per_res=True):
-    res = ' -res ' if per_res else ''
+    res = '-res' if per_res else ''
     # Get the directory that this file is in.
     s_path = '/'.join(__file__.split('/')[:-1])
-    cmd = (f"python {s_path}/measure_rmsf.py "
-           f"{top_path} {trj_path} "
-           '/tmp/rmsf.h5 '
-           f"\"{measure}\" \"{select}\" {res}")
+    cmd = ["python", f"{s_path}/measure_rmsf.py",
+           top_path, trj_path,
+           '/tmp/rmsf.h5',
+           f"\"{measure}\"", f"\"{select}\"", res]
     # Measure the RMSF
     try:
-
-        subprocess.run(cmd,
-                       shell=True,
-                       check=True)
+        subprocess.run(' '.join(cmd), shell=True, check=True)
     except subprocess.CalledProcessError as error:
         print('Error code:', error.returncode,
               '. Output:', error.output.decode("utf-8"))
@@ -265,7 +261,7 @@ def measure_rmsf(top_path, trj_path, measure='backbone',
 
 def save_rmsf(ids, top_path, trj_path, hdf_path, measure='backbone',
               select='protein', per_res=True):
-    log('info', 'Running RMSF Calc. for ' + ' '.join(ids))
+    log.info(f"Running RMSF Calc. for {' '.join(ids)}")
     rmsf = measure_rmsf(top_path, trj_path, measure, select, per_res)
     index = 'res' if per_res else 'atom'
     multiindex_hdf(rmsf, ids, hdf_path, 'rmsf', index)
@@ -301,6 +297,7 @@ def measure_rgyr(top_path, trj_path, selection):
 
 
 def save_rgyr(ids, top_path, trj_path, hdf_path, measure, align='backbone'):
+    log.info(f"Running Rad. Gyr. Calc. for {' '.join(ids)}")
     rgyr = measure_rgyr(top_path, trj_path, measure)
     multiindex_hdf(rgyr, ids, hdf_path, 'rgyr', 't')
 
@@ -335,9 +332,25 @@ def measure_com_dist(top_path: str, trj_path: str, selectA: str, selectB: str,
 
 def save_com_dist(ids: list, top_path: str, trj_path: str, hdf_path: str,
                   selectA: str, selectB: str, indices=None):
-    log('info', 'Running COM Dist. Calc. for ' + ' '.join(ids))
+    log.info(f"Running COM Dist. Calc. for {' '.join(ids)}")
     dist = measure_com_dist(top_path, selectA, selectB, indices)
     multiindex_hdf(dist, ids, hdf_path, 'com', 't')
+
+
+def atom_numbers(pdb, select, names=None):
+    """
+        Extract the atom numbers from a topology, based on selection.
+        If names are given, are chained with 'or' to the selection.
+    """
+    # Load the pdb into MDAnalysis
+    u = _init_universe(pdb)
+    # Create the string to pass to select (adding names as a list of 'or's).
+    sel_str = f"{select} and (name {' '.join(names)})"
+    log.debug(f"Select str used: {sel_str}")
+    # Select the AtomGroup with just the wanted atoms.
+    u = u.select_atoms(sel_str)
+    # Pass the IDs (from pdb input) as a list.
+    return list(u.atoms.ids)
 
 
 def simple_avg_table(hdf_path, csv=None):
@@ -374,15 +387,29 @@ def comb_mean_std(N, X, S):
     return comb_mean, comb_std
 
 
-def atom_numbers(pdb, select, names=None):
-    """ Extract the atom numbers from a topology, based on selection.
-        If names are given, are chained with 'or' to the selection.
+def usym(string: str) -> str:
     """
-    # Load the pdb into MDAnalysis
-    u = _init_universe(pdb)
-    # Create the string to pass to select (adding names as a list of 'or's
-    sel_str = f"{select} and (name {' '.join(names)})"
-    # Select the AtomGroup with just the wanted atoms.
-    u = u.select_atoms(sel_str)
-    # Pass the IDs (from pdb input) as a list.
-    return list(u.atoms.ids)
+        Encode unicode symbols based on standard naming...
+    """
+    string = string.casefold()
+    # Angstrom 
+    if "ang" in string or string == "a":
+        u_char = "\u212B"
+    # Plus Minus
+    elif string == "pm" or all(x in string for x in ["pl", "mi"]):
+        u_char = "\u00B1"
+    # Degress
+    elif "deg" in string:
+        u_char = "\u00B0"
+    # Greek letter alpha (lower case)
+    elif any(x in string for x in ["alpha", "al"]):
+        u_char = "\u03B1"
+    # Greek letter beta (lower case)
+    elif any(x in string for x in ["beta", "be"]):
+        u_char = "\u03B2"
+    # Greek letter gamma (lower case)
+    elif any(x in string for x in ["gamma", "ga", "y"]):
+        u_char = "\u03B3"
+    else:
+        raise ValueError('Please input a valid symbol reference.')
+    return u_char
