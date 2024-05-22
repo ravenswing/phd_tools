@@ -1,11 +1,12 @@
 #!/bin/bash
-#$ -N PROD_rh
-#$ -pe smp 1
-#$ -l iqtcgpu=1
-#$ -q iqtc10_g1819_gpu.q
-#$ -cwd 
-#$ -o $JOB_NAME.out
-#$ -e $JOB_NAME.err
+#SBATCH -J IL-8-a2b1
+#SBATCH -p gpu
+#SBATCH --gres=gpu:1
+#SBATCH -N 1
+#SBATCH -t 4-0
+#SBATCH -e %x.%j.err
+#SBATCH -o %x.%j.out
+
 
 # --------------------------------- INPUTS ------------------------------------
 
@@ -17,12 +18,8 @@ prev=md			# Name of previous .gro and .cpt files.
 # --------------------------------- SETUP  ------------------------------------
 
 # Load the modules and set the environment variables.
-source /etc/profile
-module load gromacs/2023_cuda
-export SGE_ROOT="/sge"
+module load apps/gromacs/2023_plumed_2.9
 export GMX=gmx_mpi
-export CUDA_VISIBLE_DEVICES=`cat $TMPDIR/.gpus`
-export OMP_NUM_THREADS=$NSLOTS
 export GMX_DISABLE_GPU_TIMING=yes
 
 # Create a custom logging function.
@@ -34,23 +31,16 @@ log_line() {
 
 # Get file names from the directory tree.
 FN=$(cd ..; basename -- "$PWD")
-#method=$(cd ../..; basename -- "$PWD")
-plumed="plumed_${FN}.dat"
+# method=$(cd ../..; basename -- "$PWD")
+plumed=plumed_${FN}.dat
 
 # Define the number steps and the max simulation time (ps).
 tmax=$(($steps*10000))
 
 # Put standard run information in the start of the log file.
-printf "INFO | SGE_O_WORKDIR:  %s \n" $SGE_O_WORKDIR > run.log
-printf "INFO | NSLOTS:  %s \n" $NSLOTS >> run.log
-printf "INFO | TMPDIR:  %s \n" $TMPDIR >> run.log
-
-# Get the node information for error tracking.
-rsync -a run.log $TMPDIR/
-cd $TMPDIR 
-printf "INFO | RUNNING ON:  %s \n" $HOSTNAME >> run.log
-rsync -a run.log $SGE_O_WORKDIR/.
-cd $SGE_O_WORKDIR
+printf "INFO | SUBMIT_DIR:  %s \n" $SLURM_SUBMIT_DIR > run.log
+printf "INFO | NODENAME:  %s \n" $SLURMD_NODENAME >> run.log
+printf "INFO | RUNNING ON:  %s \n" $SLURM_SUBMIT_HOST >> run.log
 
 
 # ----------------------------- INITIAL STEP  ---------------------------------
@@ -59,27 +49,15 @@ i=1
 
 # Run grompp to initialise the simulation
 $GMX grompp -f step10.mdp -c $prev.gro -p $FN.top -o ${traj}${i}.tpr -t $prev.cpt -r $prev.gro -n $ndx
-
-# Copy inputs and files needed to the directory where the jobs will run.
-rsync -au ${traj}${i}.tpr $TMPDIR/
-rsync -au $plumed $TMPDIR/
-rsync -au *.pdb $TMPDIR/
-
 echo $(log_line "RUNNING" "Step $i ") >> run.log
-rsync -a run.log $TMPDIR/
 
-# Run Step 1 on the compute node.
-cd $TMPDIR 
-
-$GMX mdrun  -dlb auto -pin auto 				    \
-	    -s ${traj}${i}.tpr -deffnm ${traj} -plumed $plumed 
+# Run Step 1.
+OMP_NUM_THREADS=24 srun -n 1 -c 24 $GMX mdrun -dlb auto -pin auto -s ${traj}${i}.tpr -deffnm ${traj} -plumed $plumed
 echo $(log_line "COMPLETED" "Step $i ") >> run.log
-rsync -au * $SGE_O_WORKDIR/.
-cd $SGE_O_WORKDIR
 
 # Backup the checkpoint file and update the log file.
 cp $traj.cpt ${traj}_step${i}.cpt
-echo $(log_line "SYNCED" "Step $i ") >> run.log
+
 
 # ----------------------------- RUN NEXT STEPS --------------------------------
 
@@ -87,31 +65,17 @@ for i in $(seq 2 $steps)
 do	
     # Extend the previous tpr by 10 ns.
     $GMX convert-tpr -s ${traj}$((i-1)).tpr -o ${traj}${i}.tpr -extend 10000
-
-    # Copy inputs and files needed to the directory where the jobs will run.
-    rsync -a ${traj}${i}.tpr $TMPDIR/
-    rsync -a ${traj}_step$((i-1)).cpt $TMPDIR/
- 
     echo $(log_line "RUNNING" "Step $i ") >> run.log
-    rsync -a run.log $TMPDIR/
-    
-    # Run the next step.
-    cd $TMPDIR 
-    $GMX mdrun  -dlb auto -pin auto 					\
-		-s ${traj}${i}.tpr -deffnm ${traj} -plumed $plumed	\
-		-cpi ${traj}_step$((i-1)).cpt -noappend 
+ 
+    # Run the next step. 
+    OMP_NUM_THREADS=24 srun -n 1 -c 24 $GMX mdrun -dlb auto -pin auto -s ${traj}${i}.tpr -deffnm ${traj} -cpi ${traj}_step$((i-1)).cpt -noappend -plumed $plumed
     echo $(log_line "COMPLETED" "Step $i ") >> run.log
-    rsync -au * $SGE_O_WORKDIR/.
-    cd $SGE_O_WORKDIR
     
     # Backup checkpoint file and update the log file.
     cp $traj.cpt ${traj}_step${i}.cpt 
-    echo $(log_line "SYNCED" "Step $i ") >> run.log
 done
 
-# ------------------------------ FINALISING  ----------------------------------
 
-# Account for system clock problems
-touch *
+# ------------------------------ FINALISING  ----------------------------------
 
 exit
