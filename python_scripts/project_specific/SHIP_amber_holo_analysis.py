@@ -6,28 +6,30 @@ import sys
 import numpy as np
 from glob import glob
 
-sys.path.append('/home/rhys/phd_tools/SAPS/')
+sys.path.append("/home/rhys/phd_tools/SAPS/")
 import traj_tools as tt
 
-systems = ['ship1', 'ship2']
+systems = ["ship1", "ship2"]
 
-# 
+#
 # 'Experimental': ['ship1_R1_A3', 'ship2_R1_D3'],
 # POCKETS = {'Tunnel-Front': ['ship1_R2_E1', 'ship2_R3_F2'],
-           # 'Tunnel-Back':  ['ship1_R1_C1', 'ship2_R1_A1']}
+# 'Tunnel-Back':  ['ship1_R1_C1', 'ship2_R1_A1']}
 
-POCKETS = {'Active-Site': ['ship2_Active-Site+Lig21'],
-           'Tunnel-Front': ['ship2_Tunnel-Front+Lig21'],
-           'Tunnel-Back':  ['ship2_Tunnel-Back+Lig21']}
+POCKETS = {
+    "Active-Site": ["ship2_Active-Site+Lig21"],
+    "Tunnel-Front": ["ship2_Tunnel-Front+Lig21"],
+    "Tunnel-Back": ["ship2_Tunnel-Back+Lig21"],
+}
 
 # DATA_DIR = '/media/rhys/Storage/ship_holo_uMD/data/'
-DATA_DIR = '/media/rhys/Storage/SHIP/Lig21_holo_uMD/data'
+DATA_DIR = "/media/rhys/Storage/SHIP/Lig21_holo_uMD/data"
 
 # Remote directory: IQTC
-SVR_DIR = 'iqtc:/home/g19torces/rhys_running/ship_lig21'
+SVR_DIR = "iqtc:/home/g19torces/rhys_running/ship_lig21"
 
 # Run rsync
-'''
+"""
 try:
     subprocess.run(' '.join(['rsync -avzhPu',
                              f"{SVR_DIR}/*",
@@ -37,32 +39,31 @@ except subprocess.CalledProcessError as error:
     print('Error code:', error.returncode,
           '. Output:', error.output.decode("utf-8"))
 
-'''
+"""
 
 
 def func(x):
-    return int(x.split('ns')[0].split('_')[-1])
+    return int(x.split("ns")[0].split("_")[-1])
 
 
 # load the rmsd file
-BB_RMSD_FILE = '/home/rhys/SHIP/Data/lig21_backbone.h5'
-LG_RMSD_FILE = '/home/rhys/SHIP/Data/lig21_ligand.h5'
-'''
+BB_RMSD_FILE = "/home/rhys/SHIP/Data/lig21_backbone.h5"
+LG_RMSD_FILE = "/home/rhys/SHIP/Data/lig21_ligand.h5"
+"""
 df = pd.DataFrame(columns=['pocket', 'system', 'data', 'mean', 'std'])
 df.to_hdf(BB_RMSD_FILE, key='df', mode='w')
 df.to_hdf(LG_RMSD_FILE, key='df', mode='w')
 df = pd.read_hdf(BB_RMSD_FILE, key='df', mode='r')
 align = '@CA,C,N,O'
-'''
+"""
 # Run analysis
 for pocket in POCKETS.keys():
     for system in POCKETS[pocket]:
-
         wd = f"{DATA_DIR}/{pocket.lower()}/{system}"
         print(wd)
 
-        tt.make_fulltraj(wd, [wd+f"/{system}.top", wd+f"/{system}.eq_6.r"])
-        print('made fulltraj')
+        tt.make_fulltraj(wd, [wd + f"/{system}.top", wd + f"/{system}.eq_6.r"])
+        print("made fulltraj")
 
         # Make a dry topology using PyTraj
         # a = pt.load_topology(f"{wd}/{system}.top")
@@ -76,16 +77,22 @@ for pocket in POCKETS.keys():
 
         # Generate snapshots for PyMol session
 
-        tt.snapshot_pdbs(wd,
-                         traj_to_use,
-                         f"{wd}/{system}_dry.top",
-                         [f"{wd}/{system}.top", f"{wd}/{system}.eq_6.r"],
-                         [[0, (50*200)+1, 10*200], [75*200, (100*200)+1, 25*200], [200*200, (1000*200)+1, 100*200]])
+        tt.snapshot_pdbs(
+            wd,
+            traj_to_use,
+            f"{wd}/{system}_dry.top",
+            [f"{wd}/{system}.top", f"{wd}/{system}.eq_6.r"],
+            [
+                [0, (50 * 200) + 1, 10 * 200],
+                [75 * 200, (100 * 200) + 1, 25 * 200],
+                [200 * 200, (1000 * 200) + 1, 100 * 200],
+            ],
+        )
 
         # Original snapshots...
         # [[0, (50*200)+1, 10*200], [75*200, (100*200)+1, 25*200], [200*200, (1000*200)+1, 100*200]])
-        print('made snapshots')
-        '''
+        print("made snapshots")
+        """
 
         # Measure backbone RMSD
         trj_path = traj_to_use
@@ -183,4 +190,4 @@ for metric in ['Ligand', 'Backbone']:
         i += 1
 
     fig.savefig(f"/home/rhys/Dropbox/RESEARCH/AA_RHYS/BB_BECK/NEW_LIG_21/SHIP2_{metric}_rmsd.png", dpi=300, bbox_inches='tight')
-'''
+"""

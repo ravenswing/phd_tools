@@ -22,4 +22,4 @@ for line in lines:
     if line[0] == "@" and line.split()[1] == "yaxis":
         plt.ylabel(" ".join(line.split()[3:]).replace('"', ""))
 
-plt.savefig('{}.png'.format(sys.argv[1][:-4]))
+plt.savefig("{}.png".format(sys.argv[1][:-4]))

@@ -34,38 +34,40 @@ def convert_file(in_path, out_path):
         if line[0] == "@" and line.split()[1] == "yaxis":
             plt.ylabel(" ".join(line.split()[3:]).replace('"', ""))
     # Save and close the new figure
-    plt.savefig(out_path, dpi=300, bbox_inches='tight')
+    plt.savefig(out_path, dpi=300, bbox_inches="tight")
     plt.close()
     print(f" INFO | Successfully created: {pngname}")
 
 
 if __name__ == "__main__":
-
     # Initiate argument parser
     parser = argparse.ArgumentParser(
-                        formatter_class=argparse.RawDescriptionHelpFormatter,
-                        epilog=" ")
+        formatter_class=argparse.RawDescriptionHelpFormatter, epilog=" "
+    )
     # File or directory to process
-    parser.add_argument('-f', type=str,
-                        help='File or Folder')
+    parser.add_argument("-f", type=str, help="File or Folder")
     # Optional arguments
-    '''
+    """
     parser.add_argument("-hisl", type=int, default=3,
                         help='Histidine in block (default: %(default)s)',
                         required=False)
-    '''
+    """
     # additional flags
-    parser.add_argument('-d', action='store_true',
-                        help=('Display the plot once made - single file only.'
-                              '(default: %(default)s)'))
+    parser.add_argument(
+        "-d",
+        action="store_true",
+        help=(
+            "Display the plot once made - single file only." "(default: %(default)s)"
+        ),
+    )
     # Take variables from argparser
     args = parser.parse_args()
     PATH = args.f
     DISPLAY = args.d
 
     # Single file processing
-    if '.xvg' in PATH:
-        print(' INFO | OPERATING MODE - SINGLE FILE CONVERSION')
+    if ".xvg" in PATH:
+        print(" INFO | OPERATING MODE - SINGLE FILE CONVERSION")
         print(f" INFO | Converting: {PATH}")
         # Define out_path
         pngname = f"{PATH[:-4]}.png"
@@ -76,15 +78,19 @@ if __name__ == "__main__":
             try:
                 subprocess.run(f"eog {pngname} &", check=True)
             except subprocess.CalledProcessError as error:
-                print('Error code:', error.returncode,
-                      '. Output:', error.output.decode("utf-8"))
+                print(
+                    "Error code:",
+                    error.returncode,
+                    ". Output:",
+                    error.output.decode("utf-8"),
+                )
     # Whole directory processing
     else:
-        print(' INFO | OPERATING MODE - WHOLE DIRECTORY CONVERSION')
+        print(" INFO | OPERATING MODE - WHOLE DIRECTORY CONVERSION")
         print(f" INFO | Converting: {PATH}")
         # Get the list of existing png files in that directory.
-        pnglist = glob('./{}**/*.png'.format(PATH), recursive=True)
-        for filename in iglob('./{}**/*.xvg'.format(PATH), recursive=True):
+        pnglist = glob("./{}**/*.png".format(PATH), recursive=True)
+        for filename in iglob("./{}**/*.xvg".format(PATH), recursive=True):
             pngname = f"{filename[:-4]}.png"
             # Skip any xvg files that have an existing png
             if pngname in pnglist:
