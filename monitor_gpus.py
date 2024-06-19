@@ -1,7 +1,12 @@
 import pandas as pd
 from fabric import Connection
+# Import date class from datetime module
+from datetime import date
 
-outfile = "/home/rhys/iqtc_today.txt"
+# Returns the current local date
+today = date.today()
+
+outfile = f"/home/rhys/iqtc_{today}.txt"
 
 # Make the connection to IQTC.
 c = Connection(host="portal.qt.ub.edu", user="g19sllabres")
@@ -90,7 +95,7 @@ def process_df(df, N, jobs):
 
 
 def main():
-    output = ["Date: 14/06/2024"]
+    output = [f"Date: {today}"]
     for node in range(11, 17):
         clashes = scan_node(node)
         jobs = running_jobs()
