@@ -10,7 +10,7 @@
 
 # --------------------------------- INPUTS ------------------------------------
 
-steps_per_day=3		# Expected number of steps to run within walltime (24 hrs).
+steps_per_day=20		# Expected number of steps to run within walltime (24 hrs).
 steps=50		# Maximum number of steps to run. 
 traj=metad		# Name of all output files. 
 ndx=i.ndx		# Name of index file.
