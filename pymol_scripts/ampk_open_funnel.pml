@@ -37,11 +37,11 @@ com s0_2OP, object=p0_2OP
 com s1_2OP, object=p1_2OP
 
 draw_funnel p0_1OP, p1=p0_1OP, p2=p1_1OP, s_cent=25, beta_cent=0.15, wall_width=17.5, wall_buffer=2, lower_wall=-1, upper_wall=40, vec_step=2.5, angle_sample=18
-set_name funnel, v1_NEW_open_funnel_a2b1
+set_name funnel, NEW_open_funnel_a2b1
 draw_funnel p0_2OP, p1=p0_2OP, p2=p1_2OP, s_cent=25, beta_cent=0.15, wall_width=17.5, wall_buffer=2, lower_wall=-1, upper_wall=40, vec_step=2.5, angle_sample=18
-set_name funnel, v1_NEW_open_funnel_a2b2
+set_name funnel, NEW_open_funnel_a2b2
 
-draw_funnel p0_1OP, p1=p0_1OP, p2=p1_1OP, s_cent=25, beta_cent=0.15, wall_width=19.5, wall_buffer=2, lower_wall=-1, upper_wall=40, vec_step=2.5, angle_sample=18
-set_name funnel, v2_NEW_open_funnel_a2b1
-draw_funnel p0_2OP, p1=p0_2OP, p2=p1_2OP, s_cent=25, beta_cent=0.15, wall_width=19.5, wall_buffer=2, lower_wall=-1, upper_wall=40, vec_step=2.5, angle_sample=18
-set_name funnel, v2_NEW_open_funnel_a2b2
+draw_funnel p0_1OP, p1=p0_1OP, p2=p1_1OP, s_cent=25, beta_cent=0.15, wall_width=17.0, wall_buffer=2, lower_wall=-1, upper_wall=40, vec_step=2.5, angle_sample=18
+set_name funnel, 17_NEW_open_funnel_a2b1
+draw_funnel p0_2OP, p1=p0_2OP, p2=p1_2OP, s_cent=25, beta_cent=0.15, wall_width=17.0, wall_buffer=2, lower_wall=-1, upper_wall=40, vec_step=2.5, angle_sample=18
+set_name funnel, 17_NEW_open_funnel_a2b2
